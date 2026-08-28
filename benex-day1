@@ -1,0 +1,89 @@
+#!/bin/zsh
+# ------------------------------------------------------------------------------
+# benex-day1 — the new hire runs this once, in iTerm2, on their first day.
+# Installed on every Benex Mac by the bootstrap (root.sh drops it in /usr/local/bin).
+#
+# It walks through the sign-ins that only the person can do, in order, and
+# checks each one. Safe to re-run; finished steps are skipped.
+# ------------------------------------------------------------------------------
+set -u
+ok()   { print -P "%F{green}✔%f $1"; }
+todo() { print -P "%F{yellow}→%f $1"; }
+hr()   { echo; print -P "%F{blue}── $1 ──%f"; }
+pause(){ read -k1 -s "?   press any key when done… "; echo; }
+
+[ -x /opt/homebrew/bin/brew ] && eval "$(/opt/homebrew/bin/brew shellenv)"
+EMAIL="${USER}@getbenex.com"
+
+hr "Welcome to Benex, $(id -F). This takes about 10 minutes."
+
+# ---------------------------------------------------------------- 1. GitHub
+hr "GitHub"
+command -v gh >/dev/null || brew install gh >/dev/null
+if gh auth status >/dev/null 2>&1; then
+  ok "GitHub CLI already signed in"
+else
+  todo "Sign in to GitHub. Choose: GitHub.com → SSH → upload key ~/.ssh/id_ed25519.pub → Login with a web browser"
+  gh auth login --hostname github.com --git-protocol ssh --web
+fi
+gh auth setup-git >/dev/null 2>&1
+if gh ssh-key list 2>/dev/null | grep -q "$(awk '{print $2}' ~/.ssh/id_ed25519.pub | cut -c1-20)"; then
+  ok "SSH key is on your GitHub account"
+else
+  gh ssh-key add ~/.ssh/id_ed25519.pub --title "$(hostname -s) (Benex)" >/dev/null 2>&1 && ok "Uploaded SSH key to GitHub" || todo "Upload ~/.ssh/id_ed25519.pub at https://github.com/settings/keys"
+fi
+ssh -T git@github.com 2>&1 | grep -q "successfully authenticated" && ok "ssh -T git@github.com works" || todo "SSH test failed — tell Dan"
+rm -f "$HOME/Desktop/GitHub-SSH-key-paste-me.txt"
+echo "   (Only if Dan gave you a YubiKey: add it at https://github.com/settings/security → Security keys)"
+
+# ---------------------------------------------------------------- 1b. Benex shell helpers (from git)
+hr "Benex shell helpers (claudel / clauded / claudew)"
+REPO_DIR="$HOME/.benex/new-laptop-setup-guide"
+mkdir -p "$HOME/.benex"
+if [ -d "$REPO_DIR/.git" ]; then
+  git -C "$REPO_DIR" pull -q && ok "Updated helper repo"
+else
+  gh repo clone benextechnologies/new-laptop-setup-guide "$REPO_DIR" -- -q && ok "Cloned helper repo" || todo "Couldn't clone benextechnologies/new-laptop-setup-guide — has Dan added you to the org yet?"
+fi
+if [ -x "$REPO_DIR/shell/install.sh" ]; then
+  "$REPO_DIR/shell/install.sh" && ok "Helpers installed → open a new terminal tab and try: claudel"
+else
+  todo "shell/install.sh not in the repo yet — tell Dan"
+fi
+
+# ---------------------------------------------------------------- 2. 1Password
+hr "1Password"
+todo "Open 1Password (in your Dock), sign in with $EMAIL, then confirm the extension is pinned in Chrome"
+open -a "1Password" 2>/dev/null; pause
+
+# ---------------------------------------------------------------- 3. Microsoft / Company Portal
+hr "Microsoft"
+todo "Open Company Portal and sign in with $EMAIL (this registers your Mac with Benex)"
+open -a "Company Portal" 2>/dev/null; pause
+echo "   (Only if Dan gave you a YubiKey: add it at https://aka.ms/mysecurityinfo → Add sign-in method → Security key)"
+
+# ---------------------------------------------------------------- 4. Claude Code
+hr "Claude Code"
+if command -v claude >/dev/null; then
+  todo "Run:  claude   → it will ask you to log in (use $EMAIL) → then type /exit"
+  pause
+  ok "Claude Code ready — try:  claudel"
+else
+  todo "claude not on PATH yet — the background install may still be running; re-run benex-day1 in 10 min"
+fi
+
+# ---------------------------------------------------------------- 5. Docker / Cursor
+hr "Docker Desktop and Cursor"
+todo "Docker: open it once and approve the helper prompt"
+open -a "Docker" 2>/dev/null; pause
+todo "Cursor: open it and sign in with $EMAIL"
+open -a "Cursor" 2>/dev/null; pause
+
+# ---------------------------------------------------------------- 6. Optional
+hr "Only if Dan has given you access"
+echo "   Vercel  https://vercel.com/login"
+echo "   Render  https://dashboard.render.com   (turn on 2FA under Account Settings)"
+
+hr "Done"
+echo "   Everything else was set up automatically. If anything above failed, screenshot it and send it to Dan on Teams."
+echo
