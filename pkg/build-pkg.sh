@@ -19,6 +19,8 @@ OUT="dist"; STAGE="$(mktemp -d)"; ROOT="$STAGE/root"; SCRIPTS="$STAGE/scripts"
 mkdir -p "$OUT" "$ROOT/usr/local/benex" "$ROOT/Library/LaunchAgents" "$SCRIPTS"
 
 install -m 755 root.sh user.sh benex-day1 "$ROOT/usr/local/benex/"
+mkdir -p "$ROOT/usr/local/benex/wallpaper"
+install -m 644 wallpaper/benex.png "$ROOT/usr/local/benex/wallpaper/"
 
 cat > "$ROOT/Library/LaunchAgents/com.benex.userbootstrap.plist" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>

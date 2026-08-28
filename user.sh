@@ -34,6 +34,10 @@ for cask in google-chrome 1password microsoft-teams docker cursor iterm2 copycli
 done
 # brew install --cask cmux   # <- enable later once it's stable
 
+# Benex wallpaper — set it for this user right away (best-effort: the MDM
+# wallpaper profile is the enforcement; this just makes it instant on day 1).
+osascript -e 'tell application "System Events" to set picture of every desktop to "/Library/Desktop Pictures/Benex.png"' || true
+
 # ---- 3. Node LTS + Claude Code ----------------------------------------------
 export NVM_DIR="$HOME/.nvm"
 mkdir -p "$NVM_DIR"

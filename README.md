@@ -5,8 +5,8 @@ Everything a new Benex Mac needs beyond what Apple Business's Blueprint already 
 
 | File | Runs as | What |
 |---|---|---|
-| `root.sh` | root | sleep timers + pmset sudoers, `/etc/benex/benex.zsh`, Xcode CLT, Homebrew (owned by the user), installs `benex-day1` |
-| `user.sh` | the employee | git/nvm/gh, Chrome, 1Password, Teams, Docker, Cursor, iTerm2, CopyClip, Node LTS, Claude Code, git identity, SSH key, Chrome default |
+| `root.sh` | root | sleep timers + pmset sudoers, keepawake/sleeprestore daemons, `/etc/benex/benex.zsh`, Xcode CLT, Homebrew (owned by the user), installs `benex-day1`, Benex wallpaper to `/Library/Desktop Pictures` |
+| `user.sh` | the employee | git/nvm/gh, Chrome, 1Password, Teams, Docker, Cursor, iTerm2, CopyClip, sets the Benex wallpaper, Node LTS, Claude Code, git identity, SSH key, Chrome default |
 | `benex-day1` | the employee | guided sign-ins on day 1 (GitHub + SSH key, helper repo, 1Password, Claude Code, Docker, Cursor) |
 | `bootstrap.sh` | the employee | the day-1 one-liner: downloads the three files above and runs root.sh (sudo) then user.sh |
 | `pkg/build-pkg.sh` | Dan | builds + signs `benex-bootstrap.pkg` for Apple Business (zero-touch path) |

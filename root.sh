@@ -13,6 +13,7 @@
 #   4. Xcode Command Line Tools
 #   5. Homebrew into /opt/homebrew, owned by the employee (no sudo prompt ever again)
 #   6. Installs /usr/local/bin/benex-day1 (from the same download / package payload)
+#   7. Installs the Benex wallpaper to "/Library/Desktop Pictures/Benex.png"
 # ------------------------------------------------------------------------------
 set -u
 LOG=/var/log/benex-bootstrap.log
@@ -237,6 +238,22 @@ if [ -f "$HERE/benex-day1" ]; then
   install -m 755 "$HERE/benex-day1" /usr/local/bin/benex-day1
 elif [ -f /usr/local/benex/benex-day1 ]; then
   install -m 755 /usr/local/benex/benex-day1 /usr/local/bin/benex-day1
+fi
+
+# ---- 7. Benex wallpaper (/Library/Desktop Pictures/Benex.png) -------------------
+# From the package payload when present; else (curl one-liner path) from Pages.
+# user.sh sets it for the current user; the MDM wallpaper profile is the enforcement.
+mkdir -p "/Library/Desktop Pictures"
+if [ -f "$HERE/wallpaper/benex.png" ]; then
+  install -m 644 "$HERE/wallpaper/benex.png" "/Library/Desktop Pictures/Benex.png"
+elif [ -f /usr/local/benex/wallpaper/benex.png ]; then
+  install -m 644 /usr/local/benex/wallpaper/benex.png "/Library/Desktop Pictures/Benex.png"
+else
+  curl -fsSL https://benextechnologies.github.io/mac-bootstrap/wallpaper/benex.png \
+      -o "/Library/Desktop Pictures/.benex-wallpaper.tmp" \
+    && mv "/Library/Desktop Pictures/.benex-wallpaper.tmp" "/Library/Desktop Pictures/Benex.png" \
+    && chmod 644 "/Library/Desktop Pictures/Benex.png" \
+    || { rm -f "/Library/Desktop Pictures/.benex-wallpaper.tmp"; echo "WARNING: could not fetch the Benex wallpaper"; }
 fi
 
 echo "== $(date) system bootstrap done"
