@@ -40,8 +40,11 @@ elif ! : </dev/tty 2>/dev/null; then
 fi
 [ "$UNATTENDED" -eq 1 ] && echo "== unattended run: anything needing an admin password will be deferred to benex-day1"
 
-# Casks whose installer is a .pkg, so Homebrew has to authenticate as an admin.
-ADMIN_AUTH_CASKS=(microsoft-office)
+# Casks whose installer is a .pkg, so Homebrew has to authenticate as an admin and
+# an unattended run can never complete them. Check with:
+#   brew info --cask <name> --json=v2 | grep -o '"pkg"'
+# Everything else in the list below is a drag-install .app and needs no password.
+ADMIN_AUTH_CASKS=(microsoft-office microsoft-teams)
 needs_admin_auth() { case " ${ADMIN_AUTH_CASKS[*]} " in *" $1 "*) return 0 ;; esac; return 1; }
 
 DEFER_FILE="$HOME/.benex/deferred-installs"
@@ -94,6 +97,7 @@ install_formula() {
 cask_already_on_disk() {
   case "$1" in
     microsoft-office) [ -d "/Applications/Microsoft Word.app" ] || [ -d "/Applications/Microsoft Outlook.app" ] ;;
+    microsoft-teams)  [ -d "/Applications/Microsoft Teams.app" ] ;;
     *) return 1 ;;
   esac
 }

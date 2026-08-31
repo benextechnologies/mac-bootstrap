@@ -91,7 +91,8 @@ if [ -s "$DEFER_FILE" ] && command -v brew >/dev/null 2>&1; then
     [ -n "$pending" ] || continue
     if brew list --cask "$pending" >/dev/null 2>&1; then
       ok "$pending already installed"
-    elif [ "$pending" = "microsoft-office" ] && [ -d "/Applications/Microsoft Word.app" ]; then
+    elif { [ "$pending" = "microsoft-office" ] && [ -d "/Applications/Microsoft Word.app" ]; } \
+      || { [ "$pending" = "microsoft-teams" ] && [ -d "/Applications/Microsoft Teams.app" ]; }; then
       # Apple Business pushed it as a Managed App while we waited — nothing to do.
       ok "$pending already installed (Managed App)"
     elif brew install --cask "$pending"; then
