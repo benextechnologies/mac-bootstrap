@@ -21,6 +21,8 @@ mkdir -p "$OUT" "$ROOT/usr/local/benex" "$ROOT/Library/LaunchAgents" "$SCRIPTS"
 install -m 755 root.sh user.sh benex-day1 "$ROOT/usr/local/benex/"
 mkdir -p "$ROOT/usr/local/benex/wallpaper"
 install -m 644 wallpaper/benex.png "$ROOT/usr/local/benex/wallpaper/"
+mkdir -p "$ROOT/usr/local/benex/statusline"
+install -m 644 statusline/settings.json statusline/session-output.js "$ROOT/usr/local/benex/statusline/"
 
 cat > "$ROOT/Library/LaunchAgents/com.benex.userbootstrap.plist" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -28,6 +30,9 @@ cat > "$ROOT/Library/LaunchAgents/com.benex.userbootstrap.plist" <<'EOF'
 <plist version="1.0"><dict>
   <key>Label</key><string>com.benex.userbootstrap</string>
   <key>ProgramArguments</key><array><string>/bin/zsh</string><string>/usr/local/benex/user.sh</string></array>
+  <!-- Nobody is at the keyboard here: user.sh defers anything needing an admin
+       password to benex-day1 instead of failing at every login for ever. -->
+  <key>EnvironmentVariables</key><dict><key>BENEX_UNATTENDED</key><string>1</string></dict>
   <key>RunAtLoad</key><true/>
   <key>StandardOutPath</key><string>/tmp/benex-userbootstrap.out</string>
   <key>StandardErrorPath</key><string>/tmp/benex-userbootstrap.err</string>

@@ -14,6 +14,8 @@
 #   5. Homebrew into /opt/homebrew, owned by the employee (no sudo prompt ever again)
 #   6. Installs /usr/local/bin/benex-day1 (from the same download / package payload)
 #   7. Installs the Benex wallpaper to "/Library/Desktop Pictures/Benex.png"
+#   8. Touch ID for sudo (/etc/pam.d/sudo_local — survives macOS updates)
+#   9. Rosetta 2 on Apple silicon
 # ------------------------------------------------------------------------------
 set -u
 LOG=/var/log/benex-bootstrap.log
@@ -254,6 +256,48 @@ else
     && mv "/Library/Desktop Pictures/.benex-wallpaper.tmp" "/Library/Desktop Pictures/Benex.png" \
     && chmod 644 "/Library/Desktop Pictures/Benex.png" \
     || { rm -f "/Library/Desktop Pictures/.benex-wallpaper.tmp"; echo "WARNING: could not fetch the Benex wallpaper"; }
+fi
+
+# ---- 8. Touch ID for sudo (/etc/pam.d/sudo_local) -------------------------------
+# Apple's supported hook: /etc/pam.d/sudo includes sudo_local, and sudo_local is
+# left alone by system updates — editing /etc/pam.d/sudo directly is what gets
+# silently reverted. Written unconditionally rather than sniffing for a Touch ID
+# sensor: on a Mac without one, pam_tid.so just doesn't succeed and sudo falls
+# through to asking for the password, so there is nothing to detect and nothing
+# to break.
+PAM_TID_LINE='auth       sufficient     pam_tid.so'
+if [ ! -f /etc/pam.d/sudo_local ]; then
+  if [ -f /etc/pam.d/sudo_local.template ]; then
+    sed 's/^#auth/auth/' /etc/pam.d/sudo_local.template > /etc/pam.d/sudo_local
+  else
+    printf '# sudo_local: local config, included by sudo and kept across updates\n%s\n' "$PAM_TID_LINE" > /etc/pam.d/sudo_local
+  fi
+  chown root:wheel /etc/pam.d/sudo_local
+  chmod 444 /etc/pam.d/sudo_local
+  echo "Touch ID for sudo: enabled"
+elif grep -qE '^[[:space:]]*auth[[:space:]]+sufficient[[:space:]]+pam_tid\.so' /etc/pam.d/sudo_local; then
+  echo "Touch ID for sudo: already enabled"
+else
+  # The file is there but the line is missing or commented out — add it once.
+  chmod u+w /etc/pam.d/sudo_local
+  printf '%s\n' "$PAM_TID_LINE" >> /etc/pam.d/sudo_local
+  chmod 444 /etc/pam.d/sudo_local
+  echo "Touch ID for sudo: added pam_tid to the existing sudo_local"
+fi
+
+# ---- 9. Rosetta 2 (Apple silicon only) ------------------------------------------
+# --agree-to-license keeps it headless-safe; user.sh reports the result in its
+# summary so the employee sees it alongside everything else.
+if [ "$(uname -m)" = "arm64" ]; then
+  if [ -d /Library/Apple/usr/share/rosetta ]; then
+    echo "Rosetta 2: already installed"
+  elif softwareupdate --install-rosetta --agree-to-license; then
+    echo "Rosetta 2: installed"
+  else
+    echo "WARNING: Rosetta 2 did not install"
+  fi
+else
+  echo "Rosetta 2: not applicable on this architecture ($(uname -m))"
 fi
 
 echo "== $(date) system bootstrap done"

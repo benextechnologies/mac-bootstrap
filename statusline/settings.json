@@ -1,0 +1,171 @@
+{
+  "version": 3,
+  "lines": [
+    [
+      {
+        "id": "1",
+        "type": "model",
+        "color": "yellow",
+        "rawValue": true
+      },
+      {
+        "id": "82ccfbd0-fcaf-415d-b005-22c0f936ee95",
+        "type": "custom-text",
+        "customText": " ",
+        "color": "yellow"
+      },
+      {
+        "id": "ea79497b-e005-4268-b7c0-8099073922c8",
+        "type": "thinking-effort",
+        "color": "yellow",
+        "rawValue": true
+      },
+      {
+        "id": "00728f40-d2a2-47cd-b43c-091f706ce9ff",
+        "type": "flex-separator",
+        "color": "white"
+      },
+      {
+        "id": "3",
+        "type": "context-bar",
+        "color": "red",
+        "metadata": {
+          "display": "slider"
+        },
+        "rawValue": false
+      }
+    ],
+    [
+      {
+        "id": "d817925c-7505-440f-9350-b87e0d2626da",
+        "type": "custom-text",
+        "customText": "Weekly Usage: "
+      },
+      {
+        "id": "3e951043-95de-4b31-b4eb-29355ba4effd",
+        "type": "weekly-usage",
+        "rawValue": true
+      },
+      {
+        "id": "451592ae-2c76-4faf-ab07-c8937ba0b5d0",
+        "type": "custom-text",
+        "customText": ", resets in "
+      },
+      {
+        "id": "80fa1626-3b76-4863-b9d6-d2d1fc809485",
+        "type": "weekly-reset-timer",
+        "color": "brightBlue",
+        "metadata": {
+          "display": "time",
+          "compact": "true",
+          "hours": "false"
+        },
+        "rawValue": true
+      },
+      {
+        "id": "2fc46192-8174-40e8-94b9-a82e0490e14b",
+        "type": "flex-separator"
+      },
+      {
+        "id": "5211d392-d5fa-45fb-8281-681132733f44",
+        "type": "custom-text",
+        "customText": "↑",
+        "color": "brightBlack"
+      },
+      {
+        "id": "71db5608-373d-4c30-88c7-b7330b0d9717",
+        "type": "tokens-input",
+        "color": "brightBlack",
+        "rawValue": true
+      },
+      {
+        "id": "fa76ac04-885a-48ca-b50d-574439e78b15",
+        "type": "custom-text",
+        "customText": " ↓",
+        "color": "brightBlack"
+      },
+      {
+        "id": "25543ee1-253c-4b50-9d6a-c37ba76710a8",
+        "type": "custom-command",
+        "commandPath": "__HOME__/.config/ccstatusline/session-output.js",
+        "color": "brightBlack",
+        "timeout": 1000,
+        "maxWidth": 12
+      }
+    ],
+    [
+      {
+        "id": "f98648aa-293c-43bd-86d2-e1bc81069afd",
+        "type": "custom-text",
+        "customText": "Session Usage: "
+      },
+      {
+        "id": "0ac18249-b922-4b54-acf1-aae735a8c474",
+        "type": "session-usage",
+        "rawValue": true,
+        "metadata": {
+          "display": "time"
+        }
+      },
+      {
+        "id": "15bc2b0e-f886-4370-9633-83ba422d8803",
+        "type": "custom-text",
+        "customText": ", resets in "
+      },
+      {
+        "id": "605d7377-527f-4703-a6e0-ba2ced9a8643",
+        "type": "reset-timer",
+        "rawValue": true,
+        "metadata": {
+          "compact": "true"
+        }
+      },
+      {
+        "id": "b2424167-7f7c-47d3-b776-ffce259d7592",
+        "type": "flex-separator"
+      },
+      {
+        "id": "9746bd76-49dc-463c-94b5-98dbbf5b2ce6",
+        "type": "git-conflicts",
+        "rawValue": false,
+        "metadata": {
+          "hideNoGit": "true"
+        },
+        "color": "brightRed"
+      },
+      {
+        "id": "b25ee989-049f-4c90-be2d-14dc0ceacaac",
+        "type": "custom-text",
+        "customText": " "
+      },
+      {
+        "id": "bfc2430f-5ee1-4eff-87ee-3871e9c86e9a",
+        "type": "git-changes",
+        "metadata": {
+          "hideNoGit": "false"
+        },
+        "color": "yellow"
+      }
+    ]
+  ],
+  "flexMode": "full-minus-40",
+  "compactThreshold": 60,
+  "colorLevel": 2,
+  "inheritSeparatorColors": false,
+  "globalBold": false,
+  "gitCacheTtlSeconds": 5,
+  "minimalistMode": false,
+  "powerline": {
+    "enabled": false,
+    "separators": [
+      ""
+    ],
+    "separatorInvertBackground": [
+      false
+    ],
+    "startCaps": [],
+    "endCaps": [],
+    "autoAlign": false,
+    "continueThemeAcrossLines": false
+  }
+}
