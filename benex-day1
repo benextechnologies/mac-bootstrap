@@ -4,18 +4,22 @@
 # Installed on every Benex Mac by the bootstrap (root.sh drops it in /usr/local/bin).
 #
 # It walks through the sign-ins that only the person can do, in order, and
-# checks each one. Safe to re-run; finished steps are skipped.
+# checks each one. Safe to re-run; the steps it can check are skipped, the ones it
+# can only ask about (open this app, accept that invite) get asked again.
 #
-# Email first, always: the GitHub org invite, the 1Password invite and the Duo
-# enrolment all land in the Benex mailbox, so nothing else can be signed in to
-# until the employee can read it.
+# Email first, always: the GitHub org invite and the 1Password invite land in the
+# Benex mailbox, so nothing else can be signed in to until the employee can read
+# it. (Duo is the one thing that has to work before the mailbox does — it's set
+# up during the Microsoft sign-in itself.)
 # ------------------------------------------------------------------------------
 set -u
 ok()   { print -P "%F{green}✔%f $1"; }
 todo() { print -P "%F{yellow}→%f $1"; }
 hr()   { echo; print -P "%F{blue}── $1 ──%f"; }
 pause(){ read -k1 -s "?   press any key when done… "; echo; }
-wait4(){ read -r "?   $1 "; }   # same idea as pause, but waits for Return
+# same idea as pause, but waits for Return — and reads the terminal directly, so
+# a piped/wrapped run stops here instead of silently "confirming" every step.
+wait4(){ read -r "?   $1 " </dev/tty || { echo; todo "benex-day1 has to be run in a terminal (iTerm2), not piped"; exit 1; }; }
 
 [ -x /opt/homebrew/bin/brew ] && eval "$(/opt/homebrew/bin/brew shellenv)"
 EMAIL="${USER}@getbenex.com"
@@ -27,6 +31,7 @@ hr "Welcome to Benex, $(id -F). This takes about 15 minutes."
 hr "Your Benex email"
 todo "Sign in at outlook.office.com as $EMAIL — your Microsoft password, then approve the Duo push on your phone"
 open "https://outlook.office.com" 2>/dev/null
+echo "   (No Duo on your phone yet? The sign-in walks you through enrolling it. Stuck at this step — message Dan on Teams from your phone.)"
 wait4 "press Return once you can read your mailbox…"
 ok "Mailbox open — your invites are in there"
 

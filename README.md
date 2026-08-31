@@ -13,9 +13,10 @@ Everything a new Benex Mac needs beyond what Apple Business's Blueprint already 
 
 ## The day-1 order (`benex-day1`)
 
-Email first. The GitHub org invite, the 1Password invite and the Duo enrolment are all
-sent to `first.name@getbenex.com`, so nothing can be activated until the employee can
-read that mailbox — and a new hire may not have a GitHub account at all yet.
+Email first. The GitHub org invite and the 1Password invite are both sent to
+`first.name@getbenex.com`, so nothing can be activated until the employee can read that
+mailbox — and a new hire may not have a GitHub account at all yet. (Duo is the only thing
+that has to work before the mailbox does; it's set up during the Microsoft sign-in itself.)
 
 1. **Work email** — sign in at `outlook.office.com` with the `@getbenex.com` account (password + Duo push).
 2. **Activate the accounts waiting in the mailbox** — create a GitHub account with the work
@@ -25,7 +26,8 @@ read that mailbox — and a new hire may not have a GitHub account at all yet.
    the 1Password app, Company Portal, Claude Code, Docker, Cursor.
 
 Steps 1–2 are new: before them, day 1 asked for `gh auth login` while the employee still had
-no way to read the invite that made a GitHub sign-in possible.
+no way to read the invite that made a GitHub sign-in possible. Steps 1–2 re-prompt on every
+run (like the other steps the script can't check for itself); answering them again is harmless.
 
 `user.sh` matches that order — Chrome and Outlook install ahead of the dev-tool casks.
 

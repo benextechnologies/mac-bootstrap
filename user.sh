@@ -29,8 +29,8 @@ export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ANALYTICS=1
 # ---- 2. CLI tools + terminal apps -------------------------------------------
 brew install git nvm gh || true
 # GUI apps — one line to add/remove an app for every future Mac. Each app self-updates after install.
-# Browser and email lead: day 1 can't start until the employee can read the mailbox
-# their GitHub / 1Password / Duo invites were sent to. Dev tools after them.
+# Browser and email lead the GUI apps: day 1 can't start until the employee can read
+# the mailbox their GitHub / 1Password invites were sent to. Dev tools after them.
 for cask in google-chrome microsoft-outlook 1password microsoft-teams docker cursor iterm2 copyclip; do
   brew install --cask "$cask" || echo "WARN: cask $cask failed"
 done
