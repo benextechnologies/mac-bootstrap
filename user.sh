@@ -26,7 +26,7 @@ WORK_EMAIL=""
 
 typeset -a DONE FAILED
 note_ok()   { DONE+=("$1"); }
-note_fail() { FAILED+=("$1"); echo "WARN: $1 did not install"; }
+note_fail() { FAILED+=("$1"); echo "WARN: $1 — failed"; }
 
 [ -f "$HOME/.benex-bootstrapped" ] && { echo "already bootstrapped ($HOME/.benex-bootstrapped) — nothing to do"; exit 0; }
 
@@ -91,6 +91,9 @@ if [ -n "$DOCK_NOW" ]; then
 
   # In: the tools people actually open, in the order they'll reach for them.
   # Only what's really on disk, so a cask that failed above can't break the Dock.
+  # (An app that only turns up on a later retry is appended, not slotted back
+  # into this order — the order holds for the normal case where all six install.)
+  DOCK_FAIL=0
   for app in \
       "/Applications/Google Chrome.app" \
       "/Applications/Microsoft Outlook.app" \
@@ -103,12 +106,13 @@ if [ -n "$DOCK_NOW" ]; then
     if dockutil --add "$app" --no-restart >/dev/null 2>&1; then
       DOCK_TOUCHED=1
     else
+      DOCK_FAIL=1
       echo "WARN: could not add ${app:t:r} to the Dock"
     fi
   done
 
   [ "$DOCK_TOUCHED" -eq 1 ] && killall Dock 2>/dev/null
-  note_ok "Dock curated"
+  if [ "$DOCK_FAIL" -eq 0 ]; then note_ok "Dock curated"; else note_fail "Dock (some apps could not be added)"; fi
 else
   note_fail "Dock (dockutil unavailable)"
 fi
@@ -143,8 +147,10 @@ if [ -n "$WORK_EMAIL" ]; then
   git config --global user.email "$WORK_EMAIL"
   note_ok "git identity ($FULL_NAME <$WORK_EMAIL>)"
 else
-  # Clear anything an older, guessing version of this script left behind.
-  git config --global --unset user.email 2>/dev/null || true
+  # Clear the address the old guessing version of this script left behind — but
+  # only that one. An address the employee set themselves is theirs to keep.
+  CURRENT_EMAIL=$(git config --global user.email 2>/dev/null || true)
+  [ "$CURRENT_EMAIL" = "${USER}@getbenex.com" ] && git config --global --unset user.email 2>/dev/null
   note_ok "git identity ($FULL_NAME — benex-day1 will set the email)"
 fi
 
