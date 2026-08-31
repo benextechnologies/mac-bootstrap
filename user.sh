@@ -200,11 +200,15 @@ killall Finder SystemUIServer 2>/dev/null
 note_ok "macOS preferences"
 
 # Rosetta 2 is installed by root.sh (it needs root); report it here so the
-# employee sees it in the same summary as everything else.
+# employee sees it in the same summary as everything else. Deliberately NOT a
+# note_fail: this script cannot install it, so failing on it would withhold the
+# marker and loop the LaunchAgent at every login for ever — the same trap the
+# admin-password casks are deferred to avoid.
 if [ "$(uname -m)" != "arm64" ] || [ -d /Library/Apple/usr/share/rosetta ]; then
   note_ok "Rosetta 2"
 else
-  note_fail "Rosetta 2"
+  echo "WARN: Rosetta 2 is not installed — root.sh installs it; see /var/log/benex-bootstrap.log"
+  DEFERRED+=("Rosetta 2 (root.sh installs it — see /var/log/benex-bootstrap.log)")
 fi
 
 # ---- 5. Node LTS + Claude Code ----------------------------------------------
@@ -271,7 +275,14 @@ if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
     # there; an existing statusLine key wins, and a file we can't parse is left
     # untouched rather than clobbered.
     CCSL=$(command -v ccstatusline 2>/dev/null || true)
-    if [ -n "$CCSL" ]; then
+    if [ -f "$HOME/.claude/settings.json" ] && \
+       ! node -e 'JSON.parse(require("fs").readFileSync(process.argv[1],"utf8").trim()||"{}")' "$HOME/.claude/settings.json" 2>/dev/null; then
+      # Their settings.json isn't valid JSON. Leave it strictly alone — and do NOT
+      # call this a failure: no number of retries fixes a file only a person can
+      # fix, and a permanent failure would loop the LaunchAgent at every login.
+      echo "WARN: ~/.claude/settings.json is not valid JSON — leaving it untouched"
+      DEFERRED+=("Claude status line (fix ~/.claude/settings.json by hand, then re-run benex-day1)")
+    elif [ -n "$CCSL" ]; then
       mkdir -p "$HOME/.claude"
       node -e '
         const fs = require("fs");
@@ -352,7 +363,7 @@ echo "   log:  $LOG"
 if [ ${#FAILED[@]} -eq 0 ]; then
   touch "$HOME/.benex-bootstrapped"
   if [ ${#DEFERRED[@]} -gt 0 ]; then
-    echo "   ${#DEFERRED[@]} install(s) need your password — benex-day1 does them first, no action needed now."
+    echo "   ${#DEFERRED[@]} item(s) need a person rather than a retry — benex-day1 picks them up. Nothing to do now."
   fi
   echo "   next: open a new terminal tab and run:  benex-day1"
 else

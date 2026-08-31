@@ -31,6 +31,18 @@ app_or_web(){ open -a "$1" 2>/dev/null || { todo "$1 isn't installed on this Mac
 
 [ -x /opt/homebrew/bin/brew ] && eval "$(/opt/homebrew/bin/brew shellenv)"
 
+# Everything below this line needs Homebrew — the GitHub CLI, the helper repo, the
+# installs that were left for this run. Without it the bootstrap didn't finish, and
+# walking someone through sign-ins that cannot work only wastes their morning.
+if ! command -v brew >/dev/null 2>&1; then
+  hr "Setup isn't finished on this Mac"
+  todo "Homebrew isn't installed, so the bootstrap didn't complete — none of day 1 will work yet."
+  echo "   Run this, wait for it to finish, then start benex-day1 again:"
+  echo "     curl -fsSL https://benextechnologies.github.io/mac-bootstrap/bootstrap.sh | zsh"
+  echo "   If it fails again, send ~/Library/Logs/benex-user-bootstrap.log to Dan on Teams."
+  exit 1
+fi
+
 hr "Welcome to Benex, $(id -F). This takes about 15 minutes."
 
 # ---------------------------------------------------------------- 0. Your address
