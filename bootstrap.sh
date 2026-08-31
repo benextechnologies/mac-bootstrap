@@ -17,6 +17,13 @@ for f in root.sh user.sh benex-day1; do
 done
 chmod 755 "$TMP"/*
 
+# The Claude Code status line files ride along; user.sh skips that step without them.
+mkdir -p "$TMP/statusline"
+for f in settings.json session-output.js; do
+  curl -fsSL "$BASE/statusline/$f" -o "$TMP/statusline/$f" \
+    || echo "note: could not download $BASE/statusline/$f — the status line will be skipped"
+done
+
 echo
 echo "── Benex Mac bootstrap ──────────────────────────────────────────────"
 echo "Step 1/2 needs your Mac password once (system settings, Homebrew)."

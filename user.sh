@@ -6,8 +6,8 @@
 #
 #   brew: git, nvm, gh, dockutil + casks Chrome, Microsoft 365, 1Password, Teams,
 #         Docker, Cursor, iTerm2, CopyClip
-#   Dock curation, ~/Projects, Node LTS + Claude Code, git identity, SSH key,
-#   Chrome default
+#   Dock curation, ~/Projects, Node LTS + Claude Code, the ccstatusline status
+#   line, git identity, SSH key, Chrome default
 #
 # Nothing here aborts on a single failure: every install is tried on its own and
 # the result lands in the summary printed at the end. Safe to re-run.
@@ -145,7 +145,81 @@ else
   note_fail "Claude Code"
 fi
 
-# ---- 6. Git identity --------------------------------------------------------
+# ---- 6. Claude Code status line ----------------------------------------------
+# The shared ccstatusline setup: the npm package, the widget config, and the
+# statusLine key in ~/.claude/settings.json. Anything the employee has already
+# customised is left exactly as it is — this only ever fills in what's missing.
+# Files come from next to this script, from the package payload, or off the web,
+# the same three ways root.sh finds the wallpaper.
+if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+  if npm install -g ccstatusline; then note_ok "ccstatusline"; else note_fail "ccstatusline"; fi
+
+  HERE="${0:A:h}"
+  SL_BASE="${BENEX_BOOTSTRAP_BASE:-https://benextechnologies.github.io/mac-bootstrap}"
+  SL_DIR="$HOME/.config/ccstatusline"
+  SL_STAGE=$(mktemp -d /tmp/benex-statusline.XXXXXX)
+  for f in settings.json session-output.js; do
+    if [ -f "$HERE/statusline/$f" ]; then
+      cp "$HERE/statusline/$f" "$SL_STAGE/$f"
+    elif [ -f "/usr/local/benex/statusline/$f" ]; then
+      cp "/usr/local/benex/statusline/$f" "$SL_STAGE/$f"
+    else
+      curl -fsSL "$SL_BASE/statusline/$f" -o "$SL_STAGE/$f" || true
+    fi
+  done
+
+  if [ -s "$SL_STAGE/settings.json" ] && [ -s "$SL_STAGE/session-output.js" ]; then
+    mkdir -p "$SL_DIR"
+    # The widget script, then the config that points at it — neither overwrites
+    # a file that is already there. The committed config carries a __HOME__
+    # placeholder for the script's path; resolve it as we copy it in.
+    [ -f "$SL_DIR/session-output.js" ] || cp "$SL_STAGE/session-output.js" "$SL_DIR/session-output.js"
+    chmod +x "$SL_DIR/session-output.js" 2>/dev/null || true
+    SL_OK=1
+    if [ ! -f "$SL_DIR/settings.json" ]; then
+      node -e '
+        const fs = require("fs");
+        const [src, dst, cmd] = process.argv.slice(1);
+        const cfg = JSON.parse(fs.readFileSync(src, "utf8"));
+        for (const line of cfg.lines || [])
+          for (const w of line || [])
+            if (w && typeof w.commandPath === "string") w.commandPath = cmd;
+        fs.writeFileSync(dst, JSON.stringify(cfg, null, 2) + "\n");
+      ' "$SL_STAGE/settings.json" "$SL_DIR/settings.json" "$SL_DIR/session-output.js" || SL_OK=0
+    fi
+
+    # Point Claude Code at it. Merge into whatever settings.json is already
+    # there; an existing statusLine key wins, and a file we can't parse is left
+    # untouched rather than clobbered.
+    CCSL=$(command -v ccstatusline 2>/dev/null || true)
+    if [ -n "$CCSL" ]; then
+      mkdir -p "$HOME/.claude"
+      node -e '
+        const fs = require("fs");
+        const [p, cmd] = process.argv.slice(1);
+        let s = {};
+        if (fs.existsSync(p)) {
+          const raw = fs.readFileSync(p, "utf8").trim();
+          if (raw) s = JSON.parse(raw);   // malformed: throw, and change nothing
+        }
+        if (s.statusLine) { console.log("status line: keeping the one already configured"); process.exit(0); }
+        s.statusLine = { type: "command", command: cmd, padding: 0 };
+        fs.writeFileSync(p, JSON.stringify(s, null, 2) + "\n");
+        console.log("status line: added to " + p);
+      ' "$HOME/.claude/settings.json" "$CCSL" || SL_OK=0
+    else
+      SL_OK=0
+    fi
+    if [ "$SL_OK" -eq 1 ]; then note_ok "status line config"; else note_fail "status line config"; fi
+  else
+    note_fail "status line config (files not found)"
+  fi
+  rm -rf "$SL_STAGE"
+else
+  note_fail "ccstatusline (node/npm missing)"
+fi
+
+# ---- 7. Git identity --------------------------------------------------------
 # Name comes from the macOS account's display name. The EMAIL does not: it is
 # whatever benex-day1 asked the employee for, or nothing at all. An unset
 # user.email makes git ask; a guessed one silently signs commits as the wrong
@@ -165,7 +239,7 @@ else
   note_ok "git identity ($FULL_NAME — benex-day1 will set the email)"
 fi
 
-# ---- 7. SSH key for GitHub ----------------------------------------------------
+# ---- 8. SSH key for GitHub ----------------------------------------------------
 mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
 if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
   # No work email yet? Use ssh-keygen's own user@host comment — benex-day1
@@ -175,12 +249,12 @@ fi
 # Put the public key on the Desktop so it's easy to paste into GitHub on Day 1
 cp "$HOME/.ssh/id_ed25519.pub" "$HOME/Desktop/GitHub-SSH-key-paste-me.txt" 2>/dev/null || true
 
-# ---- 8. Chrome as default browser (macOS asks the user to confirm) -----------
+# ---- 9. Chrome as default browser (macOS asks the user to confirm) -----------
 if [ -d "/Applications/Google Chrome.app" ]; then
   open -a "Google Chrome" --args --make-default-browser || true
 fi
 
-# ---- 9. What worked, what didn't ---------------------------------------------
+# ---- 10. What worked, what didn't --------------------------------------------
 echo
 echo "── Benex Mac bootstrap: what got installed ──────────────────────────"
 for item in "${DONE[@]}";   do echo "   ✓ $item"; done

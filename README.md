@@ -3,6 +3,10 @@
 Everything a new Benex Mac needs beyond what Apple Business's Blueprint already enforces
 (FileVault, firewall, screen lock, software updates, browser policy).
 
+> **Shipping a Mac to someone? Read [`ADMIN.md`](./ADMIN.md) first.** Never power on a Mac before
+> it appears in Apple Business, and get the employee's phone (password + Duo) sorted before the
+> laptop — both cost a live onboarding an afternoon.
+
 | File | Runs as | What |
 |---|---|---|
 | `root.sh` | root | sleep timers + pmset sudoers, keepawake/sleeprestore daemons, `/etc/benex/benex.zsh`, Xcode CLT, Homebrew (owned by the user), installs `benex-day1`, Benex wallpaper to `/Library/Desktop Pictures` |
@@ -10,6 +14,8 @@ Everything a new Benex Mac needs beyond what Apple Business's Blueprint already 
 | `benex-day1` | the employee | guided sign-ins on day 1, email first (see below) |
 | `bootstrap.sh` | the employee | the day-1 one-liner: downloads the three files above and runs root.sh (sudo) then user.sh |
 | `pkg/build-pkg.sh` | Dan | builds + signs `benex-bootstrap.pkg` for Apple Business (zero-touch path) |
+| `statusline/` | — | the shared Claude Code status line: `ccstatusline` widget config + the `session-output.js` widget, installed by `user.sh` |
+| `ADMIN.md` | Dan | pre-ship checklist and the known enrollment failure modes |
 
 ## The day-1 order (`benex-day1`)
 
@@ -60,6 +66,11 @@ Benex address (Claude Code needs a paid plan, Pro at minimum) *before* the `clau
   once; the one-liner path can answer that prompt, the unattended package path can't, and either
   way a failure is isolated and shown in the summary. Teams stays its own cask.
 - **`~/Projects`**, created so clone instructions and the shell helpers can assume it exists.
+- **The shared Claude Code status line.** `ccstatusline` from npm, the widget config from
+  `statusline/` (its `commandPath` rewritten to the target user's home on the way in), and a
+  `statusLine` key merged into `~/.claude/settings.json`. Nothing already there is overwritten:
+  an existing config file, widget script, or `statusLine` key is left exactly as it is, and a
+  `settings.json` that doesn't parse is reported rather than replaced.
 - **A curated Dock** (via `dockutil`): Messages, Maps, Photos, TV, Music, News, Freeform and
   FaceTime out; Chrome, Outlook, Teams, 1Password, iTerm2 and Cursor in, in that order. Only
   apps actually on disk are added, nothing is added twice, and the Dock restarts once at the end.
