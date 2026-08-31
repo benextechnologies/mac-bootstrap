@@ -25,9 +25,43 @@ EMAIL_FILE="$HOME/.benex/work-email"
 WORK_EMAIL=""
 [ -f "$EMAIL_FILE" ] && WORK_EMAIL=$(tr -d ' \t\r\n' < "$EMAIL_FILE" 2>/dev/null || true)
 
-typeset -a DONE FAILED
-note_ok()   { DONE+=("$1"); }
+# Can this run answer an admin-password prompt? The LaunchAgent that provisions a
+# packaged Mac sets BENEX_UNATTENDED=1; failing that, having no terminal to prompt
+# on means the same thing. Anything needing a password is deferred, not attempted,
+# because a run that can't finish would otherwise fail forever at every login.
+UNATTENDED=0
+if [ "${BENEX_UNATTENDED:-0}" = "1" ]; then
+  UNATTENDED=1
+elif ! : </dev/tty 2>/dev/null; then
+  # /dev/tty, not [ -t 0 ]: the documented `curl … | zsh` one-liner has a pipe on
+  # stdin but a perfectly good terminal to ask for a password on, exactly as the
+  # sudo in bootstrap.sh relies on.
+  UNATTENDED=1
+fi
+[ "$UNATTENDED" -eq 1 ] && echo "== unattended run: anything needing an admin password will be deferred to benex-day1"
+
+# Casks whose installer is a .pkg, so Homebrew has to authenticate as an admin.
+ADMIN_AUTH_CASKS=(microsoft-office)
+needs_admin_auth() { case " ${ADMIN_AUTH_CASKS[*]} " in *" $1 "*) return 0 ;; esac; return 1; }
+
+DEFER_FILE="$HOME/.benex/deferred-installs"
+typeset -a DONE FAILED DEFERRED
+note_ok()   { DONE+=("$1"); undefer "$1"; }
 note_fail() { FAILED+=("$1"); echo "WARN: $1 — failed"; }
+# Deferred is NOT failed: it's waiting for a person, and it must not hold the
+# bootstrap open. benex-day1 drains this list on day 1.
+note_defer() {
+  DEFERRED+=("$1")
+  mkdir -p "$HOME/.benex"
+  grep -qxF "$1" "$DEFER_FILE" 2>/dev/null || print -r -- "$1" >> "$DEFER_FILE"
+  echo "DEFERRED: $1 needs an admin password — benex-day1 will install it"
+}
+undefer() {
+  [ -f "$DEFER_FILE" ] || return 0
+  grep -qxF "$1" "$DEFER_FILE" 2>/dev/null || return 0
+  grep -vxF "$1" "$DEFER_FILE" > "$DEFER_FILE.tmp" 2>/dev/null && mv "$DEFER_FILE.tmp" "$DEFER_FILE"
+  [ -s "$DEFER_FILE" ] || rm -f "$DEFER_FILE"
+}
 
 [ -f "$HOME/.benex-bootstrapped" ] && { echo "already bootstrapped ($HOME/.benex-bootstrapped) — nothing to do"; exit 0; }
 
@@ -52,6 +86,7 @@ install_formula() {
 }
 install_cask() {
   if brew list --cask "$1" >/dev/null 2>&1; then note_ok "$1"; return 0; fi
+  if [ "$UNATTENDED" -eq 1 ] && needs_admin_auth "$1"; then note_defer "$1"; return 0; fi
   if brew install --cask "$1"; then note_ok "$1"; else note_fail "$1"; fi
 }
 
@@ -257,12 +292,19 @@ fi
 # ---- 10. What worked, what didn't --------------------------------------------
 echo
 echo "── Benex Mac bootstrap: what got installed ──────────────────────────"
-for item in "${DONE[@]}";   do echo "   ✓ $item"; done
-for item in "${FAILED[@]}"; do echo "   ✗ $item   FAILED"; done
+for item in "${DONE[@]}";     do echo "   ✓ $item"; done
+for item in "${DEFERRED[@]}"; do echo "   ⏸ $item   deferred — needs an interactive run"; done
+for item in "${FAILED[@]}";   do echo "   ✗ $item   FAILED"; done
 echo
 echo "   log:  $LOG"
+# Deferred work does NOT hold the bootstrap open. If it did, the packaged Mac's
+# LaunchAgent would re-run this whole script at every login, for ever, waiting for
+# a password it can never be given. benex-day1 is the interactive completion path.
 if [ ${#FAILED[@]} -eq 0 ]; then
   touch "$HOME/.benex-bootstrapped"
+  if [ ${#DEFERRED[@]} -gt 0 ]; then
+    echo "   ${#DEFERRED[@]} install(s) need your password — benex-day1 does them first, no action needed now."
+  fi
   echo "   next: open a new terminal tab and run:  benex-day1"
 else
   echo "   ${#FAILED[@]} thing(s) failed, so this Mac is NOT marked done — the next login retries them."

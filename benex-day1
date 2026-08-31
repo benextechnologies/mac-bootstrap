@@ -64,6 +64,35 @@ if [ -f "$HOME/.ssh/id_ed25519" ] && ! grep -q " $EMAIL$" "$HOME/.ssh/id_ed25519
 fi
 ok "git will sign your commits as $(git config --global user.name) <$EMAIL>"
 
+# ---------------------------------------------------------------- 0b. Finish the installs
+# A Mac provisioned by the package installs everything nobody has to authenticate
+# for, and leaves the rest here — Microsoft 365's installer needs an admin
+# password, and there is no one at the keyboard at first login. This is the
+# interactive run, so finish them now. (Nothing to do on the one-liner path: it
+# could answer the prompt itself, so this list is empty.)
+DEFER_FILE="$HOME/.benex/deferred-installs"
+if [ -s "$DEFER_FILE" ] && command -v brew >/dev/null 2>&1; then
+  hr "Finishing the installs that need your password"
+  todo "macOS asks for your Mac password here — Microsoft 365 is a big download, give it a few minutes"
+  typeset -a STILL_PENDING
+  while IFS= read -r pending; do
+    [ -n "$pending" ] || continue
+    if brew list --cask "$pending" >/dev/null 2>&1; then
+      ok "$pending already installed"
+    elif brew install --cask "$pending"; then
+      ok "Installed $pending"
+    else
+      todo "$pending didn't install — run benex-day1 again later, or tell Dan"
+      STILL_PENDING+=("$pending")
+    fi
+  done < "$DEFER_FILE"
+  if [ ${#STILL_PENDING[@]} -eq 0 ]; then
+    rm -f "$DEFER_FILE"
+  else
+    printf '%s\n' "${STILL_PENDING[@]}" > "$DEFER_FILE"
+  fi
+fi
+
 # ---------------------------------------------------------------- 1. Work email
 # Everything below arrives as an invite in this mailbox, so it has to come first.
 hr "Your Benex email"

@@ -79,5 +79,8 @@ with no way to approve the push, and the whole day-1 flow stalls behind it.
 ## Then hand it over
 
 The employee opens Terminal and runs the one-liner from the [README](./README.md); when it
-finishes, `benex-day1` walks them through the sign-ins. Their mailbox is the first thing they
+finishes, `benex-day1` walks them through the sign-ins. On a Mac provisioned by the signed
+package rather than the one-liner, Microsoft 365 is *deferred* rather than installed — its
+installer needs an admin password and nobody is at the keyboard at first login — so expect
+`benex-day1` to install it, with a password prompt, as its first real step. Their mailbox is the first thing they
 reach, which is why §5 has to be done first.

@@ -30,6 +30,9 @@ cat > "$ROOT/Library/LaunchAgents/com.benex.userbootstrap.plist" <<'EOF'
 <plist version="1.0"><dict>
   <key>Label</key><string>com.benex.userbootstrap</string>
   <key>ProgramArguments</key><array><string>/bin/zsh</string><string>/usr/local/benex/user.sh</string></array>
+  <!-- Nobody is at the keyboard here: user.sh defers anything needing an admin
+       password to benex-day1 instead of failing at every login for ever. -->
+  <key>EnvironmentVariables</key><dict><key>BENEX_UNATTENDED</key><string>1</string></dict>
   <key>RunAtLoad</key><true/>
   <key>StandardOutPath</key><string>/tmp/benex-userbootstrap.out</string>
   <key>StandardErrorPath</key><string>/tmp/benex-userbootstrap.err</string>

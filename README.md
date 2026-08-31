@@ -62,9 +62,16 @@ Benex address (Claude Code needs a paid plan, Pro at minimum) *before* the `clau
 
 - **Microsoft 365, not just mail.** The `microsoft-office` cask is the whole suite — Word,
   Excel, PowerPoint, Outlook, OneNote and OneDrive — installed right after Chrome, ahead of the
-  dev tools. It's a ~3GB installer package, so it needs macOS 14+ and asks for the Mac password
-  once; the one-liner path can answer that prompt, the unattended package path can't, and either
-  way a failure is isolated and shown in the summary. Teams stays its own cask.
+  dev tools. Teams stays its own cask.
+- **Deferred ≠ failed.** Office is a ~3GB installer *package*, so Homebrew has to authenticate as
+  an admin. On the one-liner path the employee is right there and it installs inline. On the
+  package path nobody is at the keyboard — the LaunchAgent sets `BENEX_UNATTENDED=1` (and a
+  missing `/dev/tty` says the same thing), so `user.sh` **skips it without trying**, records it in
+  `~/.benex/deferred-installs`, and shows it as `⏸ deferred`. A deferred item still lets the run
+  write the bootstrapped marker — otherwise the LaunchAgent would re-run the entire bootstrap at
+  every login for ever, waiting on a password it can never be given. `benex-day1` drains that list
+  as its first real step, where a password prompt is fine. Genuine failures still withhold the
+  marker and still retry.
 - **`~/Projects`**, created so clone instructions and the shell helpers can assume it exists.
 - **The shared Claude Code status line.** `ccstatusline` from npm, the widget config from
   `statusline/` (its `commandPath` rewritten to the target user's home on the way in), and a
