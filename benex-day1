@@ -109,6 +109,42 @@ if [ -s "$DEFER_FILE" ] && command -v brew >/dev/null 2>&1; then
   fi
 fi
 
+# The other kind of leftover: work the unattended run wouldn't touch because it
+# needed a person. The status line is the one this script can simply finish — the
+# bootstrap skips it if ~/.claude/settings.json won't parse, and by now the
+# employee may well have fixed it. Idempotent: an existing statusLine is kept.
+MANUAL_FILE="$HOME/.benex/deferred-manual"
+if command -v node >/dev/null 2>&1 && command -v ccstatusline >/dev/null 2>&1; then
+  mkdir -p "$HOME/.claude"
+  if node -e '
+    const fs = require("fs");
+    const [p, cmd] = process.argv.slice(1);
+    let s = {};
+    if (fs.existsSync(p)) {
+      const raw = fs.readFileSync(p, "utf8").trim();
+      if (raw) s = JSON.parse(raw);      // still broken: throw, change nothing
+    }
+    if (!s.statusLine) {
+      s.statusLine = { type: "command", command: cmd, padding: 0 };
+      fs.writeFileSync(p, JSON.stringify(s, null, 2) + "\n");
+    }
+  ' "$HOME/.claude/settings.json" "$(command -v ccstatusline)" 2>/dev/null; then
+    if [ -f "$MANUAL_FILE" ] && grep -q "Claude status line" "$MANUAL_FILE" 2>/dev/null; then
+      grep -v "Claude status line" "$MANUAL_FILE" > "$MANUAL_FILE.tmp" 2>/dev/null
+      mv "$MANUAL_FILE.tmp" "$MANUAL_FILE" 2>/dev/null || rm -f "$MANUAL_FILE.tmp"
+      [ -s "$MANUAL_FILE" ] || rm -f "$MANUAL_FILE"
+      ok "Claude Code status line configured"
+    fi
+  fi
+fi
+if [ -s "$MANUAL_FILE" ]; then
+  hr "Left over from the automatic setup"
+  while IFS= read -r leftover; do
+    [ -n "$leftover" ] && todo "$leftover"
+  done < "$MANUAL_FILE"
+  wait4 "press Return when you've read that…"
+fi
+
 # ---------------------------------------------------------------- 1. Work email
 # Everything below arrives as an invite in this mailbox, so it has to come first.
 hr "Your Benex email"

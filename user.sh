@@ -59,6 +59,15 @@ note_defer() {
   grep -qxF "$1" "$DEFER_FILE" 2>/dev/null || print -r -- "$1" >> "$DEFER_FILE"
   echo "DEFERRED: $1 needs an admin password — benex-day1 will install it"
 }
+# Deferred work that isn't a cask: it can't go in the install list benex-day1
+# feeds to brew, but it must still survive this process — the marker means this
+# script won't run again, so an in-memory note would simply be lost.
+DEFER_MANUAL_FILE="$HOME/.benex/deferred-manual"
+note_defer_manual() {
+  DEFERRED+=("$1")
+  mkdir -p "$HOME/.benex"
+  grep -qxF "$1" "$DEFER_MANUAL_FILE" 2>/dev/null || print -r -- "$1" >> "$DEFER_MANUAL_FILE"
+}
 undefer() {
   [ -f "$DEFER_FILE" ] || return 0
   grep -qxF "$1" "$DEFER_FILE" 2>/dev/null || return 0
@@ -73,14 +82,30 @@ undefer() {
 [ -f "$HOME/.benex-bootstrapped" ] && { echo "already bootstrapped ($HOME/.benex-bootstrapped) — nothing to do"; exit 0; }
 
 # ---- 1. Wait for Homebrew (root.sh installs it) --------------------------------
-for _ in {1..60}; do
+# Half an hour is the right wait the first time — root.sh may still be building it.
+# It is the wrong wait every time after that: root.sh runs ONCE, so if Homebrew
+# never arrived, re-running this script can't conjure it, and burning 30 minutes at
+# every single login helps nobody. Remember that we already waited, fail fast after
+# that, and pick straight back up the moment brew does appear.
+NO_BREW_FILE="$HOME/.benex/no-homebrew"
+BREW_TRIES=60
+[ -f "$NO_BREW_FILE" ] && BREW_TRIES=1
+tries=0
+while [ "$tries" -lt "$BREW_TRIES" ]; do
   [ -x /opt/homebrew/bin/brew ] && break
-  sleep 30
+  tries=$((tries + 1))
+  [ "$tries" -lt "$BREW_TRIES" ] && sleep 30
 done
 if [ ! -x /opt/homebrew/bin/brew ]; then
-  echo "ERROR: Homebrew not present after 30 min — aborting (re-run bootstrap.sh; the package path retries at next login)"
+  mkdir -p "$HOME/.benex"
+  : > "$NO_BREW_FILE"
+  echo "ERROR: Homebrew isn't installed, and root.sh — the part that installs it — only runs once,"
+  echo "       so the next login will not fix this on its own. Re-run the day-1 one-liner:"
+  echo "         curl -fsSL https://benextechnologies.github.io/mac-bootstrap/bootstrap.sh | zsh"
+  echo "       (not waiting 30 minutes again at each login; this exits straight away until brew exists)"
   exit 1
 fi
+rm -f "$NO_BREW_FILE"
 eval "$(/opt/homebrew/bin/brew shellenv)"
 export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ANALYTICS=1
 
@@ -212,7 +237,7 @@ if [ "$(uname -m)" != "arm64" ] || [ -d /Library/Apple/usr/share/rosetta ]; then
   note_ok "Rosetta 2"
 else
   echo "WARN: Rosetta 2 is not installed — root.sh installs it; see /var/log/benex-bootstrap.log"
-  DEFERRED+=("Rosetta 2 (root.sh installs it — see /var/log/benex-bootstrap.log)")
+  note_defer_manual "Rosetta 2 didn't install — tell Dan; the reason is in /var/log/benex-bootstrap.log"
 fi
 
 # ---- 5. Node LTS + Claude Code ----------------------------------------------
@@ -285,7 +310,7 @@ if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
       # call this a failure: no number of retries fixes a file only a person can
       # fix, and a permanent failure would loop the LaunchAgent at every login.
       echo "WARN: ~/.claude/settings.json is not valid JSON — leaving it untouched"
-      DEFERRED+=("Claude status line (fix ~/.claude/settings.json by hand, then re-run benex-day1)")
+      note_defer_manual "Claude status line: ~/.claude/settings.json isn't valid JSON — fix the file, then re-run benex-day1 and it will finish this"
     elif [ -n "$CCSL" ]; then
       mkdir -p "$HOME/.claude"
       node -e '
