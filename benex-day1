@@ -79,6 +79,9 @@ if [ -s "$DEFER_FILE" ] && command -v brew >/dev/null 2>&1; then
     [ -n "$pending" ] || continue
     if brew list --cask "$pending" >/dev/null 2>&1; then
       ok "$pending already installed"
+    elif [ "$pending" = "microsoft-office" ] && [ -d "/Applications/Microsoft Word.app" ]; then
+      # Apple Business pushed it as a Managed App while we waited — nothing to do.
+      ok "$pending already installed (Managed App)"
     elif brew install --cask "$pending"; then
       ok "Installed $pending"
     else
@@ -169,15 +172,17 @@ pause
 echo "   (Only if Dan gave you a YubiKey: add it at https://aka.ms/mysecurityinfo → Add sign-in method → Security key)"
 
 # ---------------------------------------------------------------- 6. Claude Code
-hr "Claude Code"
-# Benex doesn't run a Claude Team/Enterprise workspace, so there's no invite waiting
-# for you: you make your own account, on your Benex address, and expense the plan.
-todo "First make a personal Claude account at https://claude.ai using $EMAIL — it signs you up with a code emailed to that mailbox"
+hr "Claude Code — developers only"
+# Benex doesn't run a Claude Team/Enterprise workspace, so there's no invite
+# waiting: developers make their own account on their Benex address. Everyone
+# else has nothing to do here.
+echo "   Not writing software? This whole step is not for you — press Return to skip it."
+todo "Developers: make a Claude account at https://claude.ai using $EMAIL — it signs you up with a code emailed to that mailbox"
 open "https://claude.ai" 2>/dev/null
-echo "   Claude Code needs a paid plan (Pro at minimum) — subscribe per Dan's guidance, then expense it."
-wait4 "press Return once you can open claude.ai signed in as $EMAIL…"
+echo "   Then subscribe to Claude Max, on the COMPANY CARD — not your own card, and not the cheaper plan."
+wait4 "press Return once you're signed in at claude.ai (or to skip this step)…"
 if command -v claude >/dev/null; then
-  todo "Now run:  claude   → it will ask you to log in (use $EMAIL) → then type /exit"
+  todo "Developers: run  claude   → it will ask you to log in (use $EMAIL) → then type /exit"
   pause
   ok "Claude Code ready — try:  claudel"
 else

@@ -5,7 +5,7 @@
 #   • from the day-1 one-liner: bootstrap.sh runs it right after root.sh
 #
 #   brew: git, nvm, gh, dockutil + casks Chrome, Microsoft 365, 1Password, Teams,
-#         Docker, Cursor, iTerm2, CopyClip
+#         Docker, Cursor, VS Code, cmux, iTerm2, CopyClip
 #   Dock curation, ~/Projects, Node LTS + Claude Code, the ccstatusline status
 #   line, git identity, SSH key, Chrome default
 #
@@ -84,8 +84,22 @@ install_formula() {
   if brew list --formula "$1" >/dev/null 2>&1; then note_ok "$1"; return 0; fi
   if brew install "$1"; then note_ok "$1"; else note_fail "$1"; fi
 }
+# Microsoft 365 is also pushed as an Apple Business Managed App. When it arrives
+# that way Homebrew has no record of it, and `brew install --cask` refuses over an
+# app it didn't put there — so check the disk, not just Homebrew's receipts.
+cask_already_on_disk() {
+  case "$1" in
+    microsoft-office) [ -d "/Applications/Microsoft Word.app" ] || [ -d "/Applications/Microsoft Outlook.app" ] ;;
+    *) return 1 ;;
+  esac
+}
 install_cask() {
   if brew list --cask "$1" >/dev/null 2>&1; then note_ok "$1"; return 0; fi
+  if cask_already_on_disk "$1"; then
+    echo "$1: already on disk (Managed App) — leaving it alone"
+    note_ok "$1"
+    return 0
+  fi
   if [ "$UNATTENDED" -eq 1 ] && needs_admin_auth "$1"; then note_defer "$1"; return 0; fi
   if brew install --cask "$1"; then note_ok "$1"; else note_fail "$1"; fi
 }
@@ -101,10 +115,10 @@ done
 # PowerPoint, Outlook, OneNote (and OneDrive) — not just the mail client. It's a
 # ~3GB .pkg, so it needs an admin password and macOS 14+; if either is missing it
 # fails on its own and shows up in the summary without costing the other apps.
-for cask in google-chrome microsoft-office 1password microsoft-teams docker cursor iterm2 copyclip; do
+for cask in google-chrome microsoft-office 1password microsoft-teams \
+            docker cursor visual-studio-code cmux iterm2 copyclip; do
   install_cask "$cask"
 done
-# brew install --cask cmux   # <- enable later once it's stable
 
 # Benex wallpaper — set it for this user right away (best-effort: the MDM
 # wallpaper profile is the enforcement; this just makes it instant on day 1).
@@ -158,10 +172,36 @@ else
   note_fail "Dock (dockutil unavailable)"
 fi
 
-# ---- 4. ~/Projects ------------------------------------------------------------
+# ---- 4. ~/Projects and the macOS preferences -----------------------------------
 # Where work lives on every Benex Mac. Making it here means clone instructions and
 # the shell helpers can assume it exists.
 mkdir -p "$HOME/Projects"
+
+# Per-user preferences, all of them write-the-same-value-again idempotent. The
+# screen-lock password prompt is NOT set here — that's the MDM Blueprint's job.
+defaults write NSGlobalDomain AppleShowAllExtensions -bool true          # real file extensions
+defaults write com.apple.finder ShowPathbar -bool true
+defaults write com.apple.finder ShowStatusBar -bool true
+defaults write com.apple.AppleMultitouchTrackpad Clicking -bool true     # tap to click
+defaults write com.apple.driver.AppleBluetoothMultitouch.trackpad Clicking -bool true
+defaults write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
+defaults -currentHost write NSGlobalDomain com.apple.mouse.tapBehavior -int 1
+defaults write NSGlobalDomain KeyRepeat -int 2                           # fast key repeat
+defaults write NSGlobalDomain InitialKeyRepeat -int 15
+mkdir -p "$HOME/Screenshots"                                            # screenshots out of the Desktop
+defaults write com.apple.screencapture location "$HOME/Screenshots"
+defaults -currentHost write com.apple.screensaver idleTime -int 120      # screensaver after 2 min
+# One restart for the whole block rather than one per setting.
+killall Finder SystemUIServer 2>/dev/null
+note_ok "macOS preferences"
+
+# Rosetta 2 is installed by root.sh (it needs root); report it here so the
+# employee sees it in the same summary as everything else.
+if [ "$(uname -m)" != "arm64" ] || [ -d /Library/Apple/usr/share/rosetta ]; then
+  note_ok "Rosetta 2"
+else
+  note_fail "Rosetta 2"
+fi
 
 # ---- 5. Node LTS + Claude Code ----------------------------------------------
 export NVM_DIR="$HOME/.nvm"
@@ -285,8 +325,13 @@ fi
 cp "$HOME/.ssh/id_ed25519.pub" "$HOME/Desktop/GitHub-SSH-key-paste-me.txt" 2>/dev/null || true
 
 # ---- 9. Chrome as default browser (macOS asks the user to confirm) -----------
-if [ -d "/Applications/Google Chrome.app" ]; then
+# macOS answers this with a confirmation dialog, so it only makes sense when
+# somebody is actually there. Headless, it would pop Chrome open at first login
+# with a prompt nobody sees; skip it and let Chrome ask on first launch instead.
+if [ -d "/Applications/Google Chrome.app" ] && [ "$UNATTENDED" -eq 0 ]; then
   open -a "Google Chrome" --args --make-default-browser || true
+elif [ "$UNATTENDED" -eq 1 ]; then
+  echo "skipped the make-Chrome-default prompt (unattended run — Chrome asks on first launch)"
 fi
 
 # ---- 10. What worked, what didn't --------------------------------------------

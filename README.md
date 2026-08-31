@@ -9,8 +9,8 @@ Everything a new Benex Mac needs beyond what Apple Business's Blueprint already 
 
 | File | Runs as | What |
 |---|---|---|
-| `root.sh` | root | sleep timers + pmset sudoers, keepawake/sleeprestore daemons, `/etc/benex/benex.zsh`, Xcode CLT, Homebrew (owned by the user), installs `benex-day1`, Benex wallpaper to `/Library/Desktop Pictures` |
-| `user.sh` | the employee | git/nvm/gh/dockutil, Chrome, Microsoft 365, 1Password, Teams, Docker, Cursor, iTerm2, CopyClip, Benex wallpaper, Dock curation, `~/Projects`, Node LTS, Claude Code, git identity, SSH key, Chrome default — then prints what installed and what didn't |
+| `root.sh` | root | sleep timers + pmset sudoers, keepawake/sleeprestore daemons, `/etc/benex/benex.zsh`, Xcode CLT, Homebrew (owned by the user), installs `benex-day1`, Benex wallpaper, Touch ID for `sudo`, Rosetta 2 |
+| `user.sh` | the employee | git/nvm/gh/dockutil, Chrome, Microsoft 365, 1Password, Teams, Docker, Cursor, VS Code, cmux, iTerm2, CopyClip, Benex wallpaper, Dock curation, `~/Projects`, macOS preferences, Node LTS, Claude Code + status line, git identity, SSH key, Chrome default — then prints what installed and what didn't |
 | `benex-day1` | the employee | guided sign-ins on day 1, email first (see below) |
 | `bootstrap.sh` | the employee | the day-1 one-liner: downloads the three files above and runs root.sh (sudo) then user.sh |
 | `pkg/build-pkg.sh` | Dan | builds + signs `benex-bootstrap.pkg` for Apple Business (zero-touch path) |
@@ -73,6 +73,10 @@ Benex address (Claude Code needs a paid plan, Pro at minimum) *before* the `clau
   as its first real step, where a password prompt is fine. Genuine failures still withhold the
   marker and still retry.
 - **`~/Projects`**, created so clone instructions and the shell helpers can assume it exists.
+- **The macOS preferences everyone ends up setting by hand**: real file extensions, Finder path and
+  status bars, tap-to-click, fast key repeat (`KeyRepeat 2` / `InitialKeyRepeat 15`), screenshots
+  into `~/Screenshots`, and a 2-minute screensaver. Finder and SystemUIServer are restarted once
+  for the whole block. The screen-lock *password* prompt is not set here — that's the Blueprint's.
 - **The shared Claude Code status line.** `ccstatusline` from npm, the widget config from
   `statusline/` (its `commandPath` rewritten to the target user's home on the way in), and a
   `statusLine` key merged into `~/.claude/settings.json`. Nothing already there is overwritten:

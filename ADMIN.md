@@ -27,8 +27,14 @@ Everything here is checked in Apple Business, per device and per person:
 - [ ] Employee exists in **People**.
 - [ ] Employee is added to that **Blueprint's People**.
 - [ ] **Create Sign-In has been run for the employee.**
+- [ ] **Microsoft 365 assigned as a Managed App** to the device or user.
 
-That last one is not optional today. Until Apple ↔ Entra federation is connected, a Managed Apple
+Microsoft 365 is delivered **by Apple Business Managed Apps first** — that's the path that needs
+no password from the employee. The `microsoft-office` cask in `user.sh` and the deferred-install
+mechanics behind it stay exactly as they are, as the fallback for a Mac the Managed App hasn't
+reached; if ABM has already installed it, the cask sees it and simply records it as present.
+
+The Create Sign-In box is not optional today. Until Apple ↔ Entra federation is connected, a Managed Apple
 Account created by directory sync has **no password at all**, and the employee simply cannot sign
 in — this was the second failure of the live run. Running Create Sign-In is what gives them
 credentials. Once federation is connected, this step goes away.
@@ -59,6 +65,30 @@ Work down this list; each step is cheap and the earlier ones often suffice.
    minutes between retries** rather than hammering it.
 5. **Still stuck:** Apple Business support, **1-866-902-7144**, with the device **serial** and the
    **Organization ID** to hand.
+
+### After any of those: check *which kind* of enrollment you got
+
+```
+profiles status -type enrollment
+```
+
+The Setup Assistant Remote Management pane is the **only** path that produces a locked Automated
+Device Enrollment. Expect:
+
+```
+Enrolled via DEP: Yes
+MDM enrollment: Yes
+```
+
+The System Settings sign-in route (step 2) works, but it yields **User-Approved MDM, not DEP** —
+confirmed on the live machine, which reported `Enrolled via DEP: No` / `MDM enrollment: Yes (User
+Approved)`. That difference matters: a User-Approved enrollment is **not locked**, so the employee
+can remove management themselves, and Apple may not fire the enrollment-time package installs.
+
+So: the recovery route is fine for *getting someone working today*, but it is not the end state.
+Once Apple-side propagation has settled, prefer **erase and redo through the Remote Management
+pane** to land a proper DEP enrollment, and check with the command above after any future first
+boot rather than assuming.
 
 ## 5. Pre-arrival phone step — do this before the laptop
 
