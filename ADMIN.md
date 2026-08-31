@@ -34,6 +34,13 @@ no password from the employee. The `microsoft-office` cask in `user.sh` and the 
 mechanics behind it stay exactly as they are, as the fallback for a Mac the Managed App hasn't
 reached; if ABM has already installed it, the cask sees it and simply records it as present.
 
+**Microsoft Teams may move to Managed Apps too — unconfirmed.** Teams is a `.pkg` cask, so like
+Office it can't install unattended and is currently deferred to `benex-day1`, where the employee
+answers the password prompt. If Teams turns out to be available in the ABM Store (Dan is checking
+availability in the ABM Store UI), assign it as a Managed App the same way and it will arrive
+without a prompt — `user.sh` already checks the disk, so an ABM-delivered Teams records as present
+instead of being reinstalled. Until that's confirmed, brew + deferred install is the path.
+
 The Create Sign-In box is not optional today. Until Apple ↔ Entra federation is connected, a Managed Apple
 Account created by directory sync has **no password at all**, and the employee simply cannot sign
 in — this was the second failure of the live run. Running Create Sign-In is what gives them
