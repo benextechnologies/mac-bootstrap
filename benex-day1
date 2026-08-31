@@ -11,6 +11,10 @@
 # Benex mailbox, so nothing else can be signed in to until the employee can read
 # it. (Duo is the one thing that has to work before the mailbox does — it's set
 # up during the Microsoft sign-in itself.)
+#
+# It asks for the employee's @getbenex.com address up front and saves it to
+# ~/.benex/work-email. Nothing here guesses an address from the Mac's account
+# name: people name their own local account, so that guess is wrong.
 # ------------------------------------------------------------------------------
 set -u
 ok()   { print -P "%F{green}✔%f $1"; }
@@ -20,11 +24,43 @@ pause(){ read -k1 -s "?   press any key when done… "; echo; }
 # same idea as pause, but waits for Return — and reads the terminal directly, so
 # a piped/wrapped run stops here instead of silently "confirming" every step.
 wait4(){ read -r "?   $1 " </dev/tty || { echo; todo "benex-day1 has to be run in a terminal (iTerm2), not piped"; exit 1; }; }
+# open an app, or fall back to the browser if that app isn't on this Mac
+app_or_web(){ open -a "$1" 2>/dev/null || { todo "$1 isn't installed on this Mac — using $2 in Chrome instead"; open "$2" 2>/dev/null; }; }
 
 [ -x /opt/homebrew/bin/brew ] && eval "$(/opt/homebrew/bin/brew shellenv)"
-EMAIL="${USER}@getbenex.com"
 
 hr "Welcome to Benex, $(id -F). This takes about 15 minutes."
+
+# ---------------------------------------------------------------- 0. Your address
+# The Mac's account name is whatever you typed when you set the Mac up ("samash"),
+# which is NOT your mailbox — so ask once, save it, and use it everywhere after.
+EMAIL_FILE="$HOME/.benex/work-email"
+mkdir -p "$HOME/.benex"
+EMAIL=""
+[ -f "$EMAIL_FILE" ] && EMAIL=$(tr -d ' \t\r\n' < "$EMAIL_FILE" 2>/dev/null || true)
+valid_email(){ [[ "$1" == *@getbenex.com && -n "${1%@getbenex.com}" && "${1%@getbenex.com}" != *@* ]]; }
+if valid_email "$EMAIL"; then
+  ok "Your Benex address: $EMAIL   (saved earlier in $EMAIL_FILE)"
+else
+  hr "Your Benex email address"
+  while ! valid_email "$EMAIL"; do
+    wait4 "What is your Benex email address? (e.g. first.last@getbenex.com)"
+    EMAIL="${REPLY:l}"          # lower-cased…
+    EMAIL="${EMAIL//[[:space:]]/}"   # …and with any stray spaces taken out
+    valid_email "$EMAIL" || todo "It has to be the address Dan set up for you, ending in @getbenex.com"
+  done
+  print -r -- "$EMAIL" > "$EMAIL_FILE" && chmod 600 "$EMAIL_FILE"
+  ok "Saved — everything below uses $EMAIL"
+fi
+
+# Git commits and the SSH key: whatever ran before this could only guess, so fix
+# both now that we know. (Both idempotent; re-running just re-states the same thing.)
+git config --global user.email "$EMAIL"
+if [ -f "$HOME/.ssh/id_ed25519" ] && ! grep -q " $EMAIL$" "$HOME/.ssh/id_ed25519.pub" 2>/dev/null; then
+  ssh-keygen -q -c -P "" -C "$EMAIL" -f "$HOME/.ssh/id_ed25519" >/dev/null 2>&1 \
+    && cp "$HOME/.ssh/id_ed25519.pub" "$HOME/Desktop/GitHub-SSH-key-paste-me.txt" 2>/dev/null
+fi
+ok "git will sign your commits as $(git config --global user.name) <$EMAIL>"
 
 # ---------------------------------------------------------------- 1. Work email
 # Everything below arrives as an invite in this mailbox, so it has to come first.
@@ -86,16 +122,28 @@ hr "1Password"
 todo "Open 1Password (in your Dock), sign in with $EMAIL, then confirm the extension is pinned in Chrome"
 open -a "1Password" 2>/dev/null; pause
 
-# ---------------------------------------------------------------- 5. Microsoft / Company Portal
-hr "Microsoft"
-todo "Open Company Portal and sign in with $EMAIL (this registers your Mac with Benex)"
-open -a "Company Portal" 2>/dev/null; pause
+# ---------------------------------------------------------------- 5. Microsoft apps
+hr "Outlook, Teams, Company Portal"
+todo "Sign in to the Outlook and Teams apps as $EMAIL — same password and Duo push as the webmail"
+app_or_web "Microsoft Outlook" "https://outlook.office.com"
+app_or_web "Microsoft Teams"   "https://teams.microsoft.com"
+pause
+todo "Company Portal registers this Mac with Benex — open it and sign in as $EMAIL"
+app_or_web "Company Portal" "https://portal.manage.microsoft.com"
+echo "   (No Company Portal on this Mac? It arrives with the Benex device profile — tell Dan if it never turns up.)"
+pause
 echo "   (Only if Dan gave you a YubiKey: add it at https://aka.ms/mysecurityinfo → Add sign-in method → Security key)"
 
 # ---------------------------------------------------------------- 6. Claude Code
 hr "Claude Code"
+# Benex doesn't run a Claude Team/Enterprise workspace, so there's no invite waiting
+# for you: you make your own account, on your Benex address, and expense the plan.
+todo "First make a personal Claude account at https://claude.ai using $EMAIL — it signs you up with a code emailed to that mailbox"
+open "https://claude.ai" 2>/dev/null
+echo "   Claude Code needs a paid plan (Pro at minimum) — subscribe per Dan's guidance, then expense it."
+wait4 "press Return once you can open claude.ai signed in as $EMAIL…"
 if command -v claude >/dev/null; then
-  todo "Run:  claude   → it will ask you to log in (use $EMAIL) → then type /exit"
+  todo "Now run:  claude   → it will ask you to log in (use $EMAIL) → then type /exit"
   pause
   ok "Claude Code ready — try:  claudel"
 else

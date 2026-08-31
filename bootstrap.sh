@@ -23,8 +23,11 @@ echo "Step 1/2 needs your Mac password once (system settings, Homebrew)."
 sudo -p "Mac password: " bash "$TMP/root.sh" || { echo "root part failed — see /var/log/benex-bootstrap.log"; exit 1; }
 
 echo "Step 2/2: apps and dev tools as $USER (10–20 min, no input needed)…"
+echo "          it prints what installed and what didn't when it finishes."
 zsh "$TMP/user.sh"
 
 rm -rf "$TMP"
 echo
+echo "   logs:  ~/Library/Logs/benex-user-bootstrap.log   (apps and dev tools)"
+echo "          /var/log/benex-bootstrap.log              (system settings)"
 echo "✔ Done. Open a new terminal tab, then run:  benex-day1"
