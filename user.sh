@@ -59,7 +59,11 @@ note_defer() {
 undefer() {
   [ -f "$DEFER_FILE" ] || return 0
   grep -qxF "$1" "$DEFER_FILE" 2>/dev/null || return 0
-  grep -vxF "$1" "$DEFER_FILE" > "$DEFER_FILE.tmp" 2>/dev/null && mv "$DEFER_FILE.tmp" "$DEFER_FILE"
+  # No `&&` on the mv: when this item is the only line, grep -v matches nothing
+  # and exits 1 with empty output — which is exactly the "list is now empty" case,
+  # not a failure. Gating the mv on it would leave the item deferred for ever.
+  grep -vxF "$1" "$DEFER_FILE" > "$DEFER_FILE.tmp" 2>/dev/null
+  mv "$DEFER_FILE.tmp" "$DEFER_FILE" 2>/dev/null || rm -f "$DEFER_FILE.tmp"
   [ -s "$DEFER_FILE" ] || rm -f "$DEFER_FILE"
 }
 
