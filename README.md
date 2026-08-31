@@ -15,8 +15,15 @@ Everything a new Benex Mac needs beyond what Apple Business's Blueprint already 
 
 Email first. The GitHub org invite and the 1Password invite are both sent to
 `first.name@getbenex.com`, so nothing can be activated until the employee can read that
-mailbox — and a new hire may not have a GitHub account at all yet. (Duo is the only thing
-that has to work before the mailbox does; it's set up during the Microsoft sign-in itself.)
+mailbox — and a new hire may not have a GitHub account at all yet.
+
+Duo is the one thing that has to be working *before* the mailbox, and it cannot be sorted out
+from the new Mac. **Duo Mobile must already be activated on the employee's phone before laptop
+setup:** the pre-arrival phone step is a TAP sign-in at `aka.ms/mysecurityinfo` to set their
+password, plus a Duo activation link (or enrollment email) issued from the Duo Admin Panel.
+Directory sync creates the Duo user; activation is a separate step, and there is no inline
+enrollment during the Microsoft sign-in. If step 1 asks for a push and the employee has no Duo
+Mobile account, they contact Dan from their phone for an activation link.
 
 0. **Your address** — `benex-day1` asks for the employee's `@getbenex.com` address, saves it to
    `~/.benex/work-email` (mode 600) and reuses it on every later run. Everything downstream —

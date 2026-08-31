@@ -9,8 +9,10 @@
 #
 # Email first, always: the GitHub org invite and the 1Password invite land in the
 # Benex mailbox, so nothing else can be signed in to until the employee can read
-# it. (Duo is the one thing that has to work before the mailbox does — it's set
-# up during the Microsoft sign-in itself.)
+# it. (Duo is the one thing that has to be working BEFORE the mailbox, and it
+# can't be sorted out from this Mac: Duo Mobile is activated on the phone ahead
+# of laptop setup, from an activation link Dan issues out of the Duo Admin Panel.
+# Directory sync creating the user is not activation.)
 #
 # It asks for the employee's @getbenex.com address up front and saves it to
 # ~/.benex/work-email. Nothing here guesses an address from the Mac's account
@@ -67,7 +69,10 @@ ok "git will sign your commits as $(git config --global user.name) <$EMAIL>"
 hr "Your Benex email"
 todo "Sign in at outlook.office.com as $EMAIL — your Microsoft password, then approve the Duo push on your phone"
 open "https://outlook.office.com" 2>/dev/null
-echo "   (No Duo on your phone yet? The sign-in walks you through enrolling it. Stuck at this step — message Dan on Teams from your phone.)"
+echo "   Duo Mobile should already be active on your phone from the pre-arrival step: aka.ms/mysecurityinfo with the"
+echo "   temporary access pass to set your password, plus the Duo activation link Dan sent you."
+echo "   (Asked for a push but Duo Mobile has no Benex account? It can't be activated from this Mac — contact Dan"
+echo "    from your phone for an activation link, then come back to this step.)"
 wait4 "press Return once you can read your mailbox…"
 ok "Mailbox open — your invites are in there"
 
