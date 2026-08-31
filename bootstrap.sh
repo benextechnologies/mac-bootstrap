@@ -22,8 +22,9 @@ echo "── Benex Mac bootstrap ───────────────�
 echo "Step 1/2 needs your Mac password once (system settings, Homebrew)."
 sudo -p "Mac password: " bash "$TMP/root.sh" || { echo "root part failed — see /var/log/benex-bootstrap.log"; exit 1; }
 
-echo "Step 2/2: apps and dev tools as $USER (10–20 min, no input needed)…"
-echo "          it prints what installed and what didn't when it finishes."
+echo "Step 2/2: apps and dev tools as $USER (15–30 min)…"
+echo "          Microsoft 365 is a ~3GB installer package, so this may ask for your Mac"
+echo "          password once. It prints what installed and what didn't when it finishes."
 zsh "$TMP/user.sh"
 
 rm -rf "$TMP"

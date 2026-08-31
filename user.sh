@@ -4,9 +4,10 @@
 #   • from benex-bootstrap.pkg: a LaunchAgent runs it at the first login
 #   • from the day-1 one-liner: bootstrap.sh runs it right after root.sh
 #
-#   brew: git, nvm, gh, dockutil + casks Chrome, Outlook, 1Password, Teams,
+#   brew: git, nvm, gh, dockutil + casks Chrome, Microsoft 365, 1Password, Teams,
 #         Docker, Cursor, iTerm2, CopyClip
-#   Dock curation, Node LTS + Claude Code, git identity, SSH key, Chrome default
+#   Dock curation, ~/Projects, Node LTS + Claude Code, git identity, SSH key,
+#   Chrome default
 #
 # Nothing here aborts on a single failure: every install is tried on its own and
 # the result lands in the summary printed at the end. Safe to re-run.
@@ -60,7 +61,12 @@ done
 # GUI apps — one line to add/remove an app for every future Mac. Each app self-updates after install.
 # Browser and email lead the GUI apps: day 1 can't start until the employee can read
 # the mailbox their GitHub / 1Password invites were sent to. Dev tools after them.
-for cask in google-chrome microsoft-outlook 1password microsoft-teams docker cursor iterm2 copyclip; do
+#
+# microsoft-office is the whole Microsoft 365 suite in one cask — Word, Excel,
+# PowerPoint, Outlook, OneNote (and OneDrive) — not just the mail client. It's a
+# ~3GB .pkg, so it needs an admin password and macOS 14+; if either is missing it
+# fails on its own and shows up in the summary without costing the other apps.
+for cask in google-chrome microsoft-office 1password microsoft-teams docker cursor iterm2 copyclip; do
   install_cask "$cask"
 done
 # brew install --cask cmux   # <- enable later once it's stable
@@ -117,7 +123,12 @@ else
   note_fail "Dock (dockutil unavailable)"
 fi
 
-# ---- 4. Node LTS + Claude Code ----------------------------------------------
+# ---- 4. ~/Projects ------------------------------------------------------------
+# Where work lives on every Benex Mac. Making it here means clone instructions and
+# the shell helpers can assume it exists.
+mkdir -p "$HOME/Projects"
+
+# ---- 5. Node LTS + Claude Code ----------------------------------------------
 export NVM_DIR="$HOME/.nvm"
 mkdir -p "$NVM_DIR"
 if [ -s /opt/homebrew/opt/nvm/nvm.sh ]; then
@@ -134,7 +145,7 @@ else
   note_fail "Claude Code"
 fi
 
-# ---- 5. Git identity --------------------------------------------------------
+# ---- 6. Git identity --------------------------------------------------------
 # Name comes from the macOS account's display name. The EMAIL does not: it is
 # whatever benex-day1 asked the employee for, or nothing at all. An unset
 # user.email makes git ask; a guessed one silently signs commits as the wrong
@@ -154,7 +165,7 @@ else
   note_ok "git identity ($FULL_NAME — benex-day1 will set the email)"
 fi
 
-# ---- 6. SSH key for GitHub ----------------------------------------------------
+# ---- 7. SSH key for GitHub ----------------------------------------------------
 mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
 if [ ! -f "$HOME/.ssh/id_ed25519" ]; then
   # No work email yet? Use ssh-keygen's own user@host comment — benex-day1
@@ -164,12 +175,12 @@ fi
 # Put the public key on the Desktop so it's easy to paste into GitHub on Day 1
 cp "$HOME/.ssh/id_ed25519.pub" "$HOME/Desktop/GitHub-SSH-key-paste-me.txt" 2>/dev/null || true
 
-# ---- 7. Chrome as default browser (macOS asks the user to confirm) -----------
+# ---- 8. Chrome as default browser (macOS asks the user to confirm) -----------
 if [ -d "/Applications/Google Chrome.app" ]; then
   open -a "Google Chrome" --args --make-default-browser || true
 fi
 
-# ---- 8. What worked, what didn't ---------------------------------------------
+# ---- 9. What worked, what didn't ---------------------------------------------
 echo
 echo "── Benex Mac bootstrap: what got installed ──────────────────────────"
 for item in "${DONE[@]}";   do echo "   ✓ $item"; done

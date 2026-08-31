@@ -6,7 +6,7 @@ Everything a new Benex Mac needs beyond what Apple Business's Blueprint already 
 | File | Runs as | What |
 |---|---|---|
 | `root.sh` | root | sleep timers + pmset sudoers, keepawake/sleeprestore daemons, `/etc/benex/benex.zsh`, Xcode CLT, Homebrew (owned by the user), installs `benex-day1`, Benex wallpaper to `/Library/Desktop Pictures` |
-| `user.sh` | the employee | git/nvm/gh/dockutil, Chrome, Outlook, 1Password, Teams, Docker, Cursor, iTerm2, CopyClip, Benex wallpaper, Dock curation, Node LTS, Claude Code, git identity, SSH key, Chrome default — then prints what installed and what didn't |
+| `user.sh` | the employee | git/nvm/gh/dockutil, Chrome, Microsoft 365, 1Password, Teams, Docker, Cursor, iTerm2, CopyClip, Benex wallpaper, Dock curation, `~/Projects`, Node LTS, Claude Code, git identity, SSH key, Chrome default — then prints what installed and what didn't |
 | `benex-day1` | the employee | guided sign-ins on day 1, email first (see below) |
 | `bootstrap.sh` | the employee | the day-1 one-liner: downloads the three files above and runs root.sh (sudo) then user.sh |
 | `pkg/build-pkg.sh` | Dan | builds + signs `benex-bootstrap.pkg` for Apple Business (zero-touch path) |
@@ -54,6 +54,12 @@ Benex address (Claude Code needs a paid plan, Pro at minimum) *before* the `clau
 
 ## What `user.sh` leaves behind
 
+- **Microsoft 365, not just mail.** The `microsoft-office` cask is the whole suite — Word,
+  Excel, PowerPoint, Outlook, OneNote and OneDrive — installed right after Chrome, ahead of the
+  dev tools. It's a ~3GB installer package, so it needs macOS 14+ and asks for the Mac password
+  once; the one-liner path can answer that prompt, the unattended package path can't, and either
+  way a failure is isolated and shown in the summary. Teams stays its own cask.
+- **`~/Projects`**, created so clone instructions and the shell helpers can assume it exists.
 - **A curated Dock** (via `dockutil`): Messages, Maps, Photos, TV, Music, News, Freeform and
   FaceTime out; Chrome, Outlook, Teams, 1Password, iTerm2 and Cursor in, in that order. Only
   apps actually on disk are added, nothing is added twice, and the Dock restarts once at the end.
