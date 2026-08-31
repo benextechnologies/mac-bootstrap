@@ -5,19 +5,44 @@
 #
 # It walks through the sign-ins that only the person can do, in order, and
 # checks each one. Safe to re-run; finished steps are skipped.
+#
+# Email first, always: the GitHub org invite, the 1Password invite and the Duo
+# enrolment all land in the Benex mailbox, so nothing else can be signed in to
+# until the employee can read it.
 # ------------------------------------------------------------------------------
 set -u
 ok()   { print -P "%F{green}✔%f $1"; }
 todo() { print -P "%F{yellow}→%f $1"; }
 hr()   { echo; print -P "%F{blue}── $1 ──%f"; }
 pause(){ read -k1 -s "?   press any key when done… "; echo; }
+wait4(){ read -r "?   $1 "; }   # same idea as pause, but waits for Return
 
 [ -x /opt/homebrew/bin/brew ] && eval "$(/opt/homebrew/bin/brew shellenv)"
 EMAIL="${USER}@getbenex.com"
 
-hr "Welcome to Benex, $(id -F). This takes about 10 minutes."
+hr "Welcome to Benex, $(id -F). This takes about 15 minutes."
 
-# ---------------------------------------------------------------- 1. GitHub
+# ---------------------------------------------------------------- 1. Work email
+# Everything below arrives as an invite in this mailbox, so it has to come first.
+hr "Your Benex email"
+todo "Sign in at outlook.office.com as $EMAIL — your Microsoft password, then approve the Duo push on your phone"
+open "https://outlook.office.com" 2>/dev/null
+wait4 "press Return once you can read your mailbox…"
+ok "Mailbox open — your invites are in there"
+
+# ---------------------------------------------------------------- 2. Accept the invites
+hr "Accept your invites (they're in the mailbox you just opened)"
+todo "GitHub — no GitHub account yet? Create one at https://github.com/signup using $EMAIL"
+todo "GitHub — then accept the benextechnologies invite: the link in the email, or the page just opened"
+open "https://github.com/orgs/benextechnologies/invitation" 2>/dev/null
+wait4 "press Return once you're a member of benextechnologies…"
+ok "GitHub account is in the Benex org"
+todo "1Password — open the invite email and accept it (benex.1password.com), sign up with $EMAIL, and save your Secret Key somewhere safe"
+open "https://benex.1password.com" 2>/dev/null
+wait4 "press Return once your 1Password account exists…"
+ok "1Password account created"
+
+# ---------------------------------------------------------------- 3. GitHub CLI
 hr "GitHub"
 command -v gh >/dev/null || brew install gh >/dev/null
 if gh auth status >/dev/null 2>&1; then
@@ -36,7 +61,7 @@ ssh -T git@github.com 2>&1 | grep -q "successfully authenticated" && ok "ssh -T 
 rm -f "$HOME/Desktop/GitHub-SSH-key-paste-me.txt"
 echo "   (Only if Dan gave you a YubiKey: add it at https://github.com/settings/security → Security keys)"
 
-# ---------------------------------------------------------------- 1b. Benex shell helpers (from git)
+# ---------------------------------------------------------------- 3b. Benex shell helpers (from git)
 hr "Benex shell helpers (claudel / clauded / claudew)"
 REPO_DIR="$HOME/.benex/new-laptop-setup-guide"
 mkdir -p "$HOME/.benex"
@@ -51,18 +76,18 @@ else
   todo "shell/install.sh not in the repo yet — tell Dan"
 fi
 
-# ---------------------------------------------------------------- 2. 1Password
+# ---------------------------------------------------------------- 4. 1Password
 hr "1Password"
 todo "Open 1Password (in your Dock), sign in with $EMAIL, then confirm the extension is pinned in Chrome"
 open -a "1Password" 2>/dev/null; pause
 
-# ---------------------------------------------------------------- 3. Microsoft / Company Portal
+# ---------------------------------------------------------------- 5. Microsoft / Company Portal
 hr "Microsoft"
 todo "Open Company Portal and sign in with $EMAIL (this registers your Mac with Benex)"
 open -a "Company Portal" 2>/dev/null; pause
 echo "   (Only if Dan gave you a YubiKey: add it at https://aka.ms/mysecurityinfo → Add sign-in method → Security key)"
 
-# ---------------------------------------------------------------- 4. Claude Code
+# ---------------------------------------------------------------- 6. Claude Code
 hr "Claude Code"
 if command -v claude >/dev/null; then
   todo "Run:  claude   → it will ask you to log in (use $EMAIL) → then type /exit"
@@ -72,14 +97,14 @@ else
   todo "claude not on PATH yet — the background install may still be running; re-run benex-day1 in 10 min"
 fi
 
-# ---------------------------------------------------------------- 5. Docker / Cursor
+# ---------------------------------------------------------------- 7. Docker / Cursor
 hr "Docker Desktop and Cursor"
 todo "Docker: open it once and approve the helper prompt"
 open -a "Docker" 2>/dev/null; pause
 todo "Cursor: open it and sign in with $EMAIL"
 open -a "Cursor" 2>/dev/null; pause
 
-# ---------------------------------------------------------------- 6. Optional
+# ---------------------------------------------------------------- 8. Optional
 hr "Only if Dan has given you access"
 echo "   Vercel  https://vercel.com/login"
 echo "   Render  https://dashboard.render.com   (turn on 2FA under Account Settings)"

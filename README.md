@@ -6,10 +6,28 @@ Everything a new Benex Mac needs beyond what Apple Business's Blueprint already 
 | File | Runs as | What |
 |---|---|---|
 | `root.sh` | root | sleep timers + pmset sudoers, keepawake/sleeprestore daemons, `/etc/benex/benex.zsh`, Xcode CLT, Homebrew (owned by the user), installs `benex-day1`, Benex wallpaper to `/Library/Desktop Pictures` |
-| `user.sh` | the employee | git/nvm/gh, Chrome, 1Password, Teams, Docker, Cursor, iTerm2, CopyClip, sets the Benex wallpaper, Node LTS, Claude Code, git identity, SSH key, Chrome default |
-| `benex-day1` | the employee | guided sign-ins on day 1 (GitHub + SSH key, helper repo, 1Password, Claude Code, Docker, Cursor) |
+| `user.sh` | the employee | git/nvm/gh, Chrome, Outlook, 1Password, Teams, Docker, Cursor, iTerm2, CopyClip, sets the Benex wallpaper, Node LTS, Claude Code, git identity, SSH key, Chrome default |
+| `benex-day1` | the employee | guided sign-ins on day 1, email first (see below) |
 | `bootstrap.sh` | the employee | the day-1 one-liner: downloads the three files above and runs root.sh (sudo) then user.sh |
 | `pkg/build-pkg.sh` | Dan | builds + signs `benex-bootstrap.pkg` for Apple Business (zero-touch path) |
+
+## The day-1 order (`benex-day1`)
+
+Email first. The GitHub org invite, the 1Password invite and the Duo enrolment are all
+sent to `first.name@getbenex.com`, so nothing can be activated until the employee can
+read that mailbox — and a new hire may not have a GitHub account at all yet.
+
+1. **Work email** — sign in at `outlook.office.com` with the `@getbenex.com` account (password + Duo push).
+2. **Activate the accounts waiting in the mailbox** — create a GitHub account with the work
+   email if there isn't one and accept the `benextechnologies` org invite; accept the
+   1Password invite (`benex.1password.com`).
+3. **CLI + app sign-ins** — GitHub CLI (`gh auth login`) and SSH key, the shell-helper repo,
+   the 1Password app, Company Portal, Claude Code, Docker, Cursor.
+
+Steps 1–2 are new: before them, day 1 asked for `gh auth login` while the employee still had
+no way to read the invite that made a GitHub sign-in possible.
+
+`user.sh` matches that order — Chrome and Outlook install ahead of the dev-tool casks.
 
 ## Two delivery paths
 
