@@ -8,7 +8,8 @@
 #
 # What it does:
 #   1. Sleep/display timers to match Dan's Mac + lets admins run pmset without a sudo password (claudel)
-#   2. keepawake + sleeprestore LaunchDaemons (ported from the pre-MDM dev-machine setup)
+#   2. sleeprestore LaunchDaemon (ported from the pre-MDM dev-machine setup; the old keepawake
+#      daemon is no longer provisioned — see section 2)
 #   3. Shared zsh config for every user  (/etc/benex/benex.zsh: brew, nvm, hook for the git helpers)
 #   4. Xcode Command Line Tools
 #   5. Homebrew into /opt/homebrew, owned by the employee (no sudo prompt ever again)
@@ -33,116 +34,20 @@ printf '%%admin ALL=(root) NOPASSWD: /usr/bin/pmset\n' > /etc/sudoers.d/benex-pm
 chmod 440 /etc/sudoers.d/benex-pmset
 visudo -cf /etc/sudoers.d/benex-pmset >/dev/null 2>&1 || rm -f /etc/sudoers.d/benex-pmset
 
-# ---- 2. Keep-awake + sleep-restore LaunchDaemons --------------------------------
+# ---- 2. Sleep-restore LaunchDaemon ----------------------------------------------
 # Ported verbatim from the pre-MDM dev-machine setup — behavior identical:
-#   • com.benex.keepawake    ← new-laptop-setup-guide/scripts/install-keepawake.sh
 #   • com.benex.sleeprestore ← benex-automation/macos/com.benex.sleeprestore.plist
-# keepawake holds `caffeinate -i` whenever a real user is logged in with the lid
-# OPEN, so terminals / Claude Code / Docker never idle-sleep (lid-close still
-# sleeps — travel mode). sleeprestore is a one-shot at boot that resets
+# The old com.benex.keepawake daemon (an unbounded `caffeinate -i` idle-system-sleep
+# watchdog) is no longer provisioned or loaded here. Macs bootstrapped earlier keep
+# their installed copy; removing it needs its owner's explicit approval (README).
+# For timed lid-open work use Stay Awake (new-laptop-setup-guide/tools/stay-awake).
+# sleeprestore is a one-shot at boot that resets
 # `pmset -a disablesleep 0`, cleaning up after a `claudel` session that died
 # without restoring sleep (disablesleep persists across reboots). It is
 # installed copy-only, with NO `launchctl bootstrap`: RunAtLoad would fire
 # immediately and could race an active claudel session (or sleep a lid-closed
 # Mac mid-install); launchd picks the plist up at the next boot, which is the
 # only time the reset is needed.
-
-# -- keepawake watchdog script (root:wheel, NOT user-writable — it runs as root)
-cat > /usr/local/bin/keepawake.sh <<'KEEPAWAKE_EOF'
-#!/bin/bash
-#
-# keepawake.sh — keep this Mac awake (apps running) whenever a user is logged in and
-# the lid is OPEN. Apps then run indefinitely until logout, shutdown, or lid-close.
-#
-# Holds a `caffeinate -i` assertion (PreventUserIdleSystemSleep) whenever BOTH:
-#   1. a real user is logged into the console (NOT the login window), and
-#   2. the laptop lid is OPEN.
-#
-# caffeinate -i works on battery AND AC, and is auto-overridden by lid-close (clamshell)
-# sleep, so closing the lid always sleeps (travel mode). Screen-lock / screensaver /
-# display-off do NOT pause apps — only system sleep does, which this prevents.
-
-set -u
-
-# Lid is open unless ioreg reports AppleClamshellState = Yes (closed).
-lid_is_open() {
-  ! ioreg -r -k AppleClamshellState 2>/dev/null | grep -q 'AppleClamshellState" = Yes'
-}
-
-# A real user is at the console (logged in, even if the screen is locked) — not the
-# login window (shows as root / _windowserver) and not a system "_" account.
-user_logged_in() {
-  local u; u=$(stat -f '%Su' /dev/console 2>/dev/null)
-  [ -n "$u" ] && [ "$u" != "root" ] && [ "${u#_}" = "$u" ]
-}
-
-CAFF_PID=""
-holding=0
-log() { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1"; }
-
-start_caffeinate() {
-  if [ -z "$CAFF_PID" ] || ! kill -0 "$CAFF_PID" 2>/dev/null; then
-    caffeinate -i &
-    CAFF_PID=$!
-    [ "$holding" -eq 0 ] && log "HOLD    user logged in + lid open -> caffeinate -i (pid $CAFF_PID)"
-    holding=1
-  fi
-}
-
-stop_caffeinate() {
-  if [ -n "$CAFF_PID" ] && kill -0 "$CAFF_PID" 2>/dev/null; then
-    kill "$CAFF_PID" 2>/dev/null
-  fi
-  CAFF_PID=""
-  [ "$holding" -eq 1 ] && log "RELEASE logged out or lid closed -> allow normal sleep"
-  holding=0
-}
-
-trap 'stop_caffeinate; exit 0' TERM INT
-
-log "keepawake started (pid $$)"
-while true; do
-  if user_logged_in && lid_is_open; then
-    start_caffeinate
-  else
-    stop_caffeinate
-  fi
-  sleep 30
-done
-KEEPAWAKE_EOF
-chown root:wheel /usr/local/bin/keepawake.sh
-chmod 755 /usr/local/bin/keepawake.sh
-
-# -- keepawake LaunchDaemon plist (root:wheel), then (re)load it now
-cat > /Library/LaunchDaemons/com.benex.keepawake.plist <<'PLIST_EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.benex.keepawake</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/bin/bash</string>
-        <string>/usr/local/bin/keepawake.sh</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>ProcessType</key>
-    <string>Background</string>
-    <key>StandardOutPath</key>
-    <string>/Library/Logs/benex-keepawake.log</string>
-    <key>StandardErrorPath</key>
-    <string>/Library/Logs/benex-keepawake.log</string>
-</dict>
-</plist>
-PLIST_EOF
-chown root:wheel /Library/LaunchDaemons/com.benex.keepawake.plist
-chmod 644 /Library/LaunchDaemons/com.benex.keepawake.plist
-launchctl bootout system/com.benex.keepawake 2>/dev/null
-launchctl bootstrap system /Library/LaunchDaemons/com.benex.keepawake.plist
 
 # -- sleeprestore LaunchDaemon plist (copy-only; see the note above)
 cat > /Library/LaunchDaemons/com.benex.sleeprestore.plist <<'PLIST_EOF'

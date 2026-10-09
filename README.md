@@ -9,7 +9,7 @@ Everything a new Benex Mac needs beyond what Apple Business's Blueprint already 
 
 | File | Runs as | What |
 |---|---|---|
-| `root.sh` | root | sleep timers + pmset sudoers, keepawake/sleeprestore daemons, `/etc/benex/benex.zsh`, Xcode CLT, Homebrew (owned by the user), installs `benex-day1`, Benex wallpaper, Touch ID for `sudo`, Rosetta 2 |
+| `root.sh` | root | sleep timers + pmset sudoers, sleeprestore daemon, `/etc/benex/benex.zsh`, Xcode CLT, Homebrew (owned by the user), installs `benex-day1`, Benex wallpaper, Touch ID for `sudo`, Rosetta 2 |
 | `user.sh` | the employee | git/nvm/gh/dockutil, Chrome, Microsoft 365, 1Password, Teams, Docker, Cursor, VS Code, cmux, iTerm2, CopyClip, Benex wallpaper, Dock curation, `~/Projects`, macOS preferences, Node LTS, Claude Code + status line, git identity, SSH key, Chrome default — then prints what installed and what didn't |
 | `benex-day1` | the employee | guided sign-ins on day 1, email first (see below) |
 | `bootstrap.sh` | the employee | the day-1 one-liner: downloads the three files above and runs root.sh (sudo) then user.sh |
@@ -102,6 +102,24 @@ curl -fsSL https://benextechnologies.github.io/mac-bootstrap/bootstrap.sh | zsh
 **Once it exists** — `./pkg/build-pkg.sh "Developer ID Installer: Benex Technologies Inc (TEAMID)"`,
 commit `dist/benex-bootstrap.pkg`, add it in Apple Business → macOS Packages (URL + SHA-256),
 attach to the Work Devices Blueprint. From then on every Mac installs everything on first boot.
+
+## Retired: the keep-awake daemon
+
+`root.sh` no longer installs or loads `com.benex.keepawake` (`/usr/local/bin/keepawake.sh` +
+`/Library/LaunchDaemons/com.benex.keepawake.plist`), an unbounded `caffeinate -i` idle-system-sleep
+watchdog that overlapped Stay Awake. This changes **future provisioning only**:
+
+- The curl one-liner picks the change up once it is on `main`. The package path keeps the old
+  behavior until `dist/benex-bootstrap.pkg` is rebuilt, re-uploaded and its hash updated in
+  Apple Business; that is a separate, explicitly approved release step.
+- Macs already bootstrapped keep their installed daemon, and earlier package copies are
+  unchanged. Removing the daemon from deployed Macs is a system migration gated on its owner
+  (the MDM/Apple Business admin) and a separate explicit approval; nothing here does it.
+- The pmset timers, the `benex-pmset` sudoers rule and the copy-only `com.benex.sleeprestore`
+  daemon are unchanged, so the separate lid-closed `claudel` workflow still works.
+- For lid-open work, the optional, timed Stay Awake (`new-laptop-setup-guide/tools/stay-awake`)
+  needs administrator approval to start and doesn't override MDM screen lock, explicit sleep or
+  closed-lid sleep.
 
 ## Hosting
 
