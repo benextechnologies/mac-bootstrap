@@ -26,7 +26,7 @@ Everything here is checked in Apple Business, per device and per person:
 - [ ] Device (or the user it's assigned to) is in the **Work Devices Blueprint**.
 - [ ] Employee exists in **People**.
 - [ ] Employee is added to that **Blueprint's People**.
-- [ ] **Create Sign-In has been run for the employee.**
+- [ ] Employee can sign in with their **Microsoft work account**. Create Sign-In is not a per-hire step while Apple ↔ Entra federation is on.
 - [ ] **Microsoft 365 assigned as a Managed App** to the device or user.
 
 Microsoft 365 is delivered **by Apple Business Managed Apps first** — that's the path that needs
@@ -41,21 +41,23 @@ availability in the ABM Store UI), assign it as a Managed App the same way and i
 without a prompt — `user.sh` already checks the disk, so an ABM-delivered Teams records as present
 instead of being reinstalled. Until that's confirmed, brew + deferred install is the path.
 
-The Create Sign-In box is not optional today. Until Apple ↔ Entra federation is connected, a Managed Apple
-Account created by directory sync has **no password at all**, and the employee simply cannot sign
-in — this was the second failure of the live run. Running Create Sign-In is what gives them
-credentials. Once federation is connected, this step goes away.
+The employee signs in on the Remote Management screen with their Microsoft work account.
+Apple ↔ Entra federation is what makes that password work, so Create Sign-In is not a per-hire
+step while federation is on. It remains the fallback if federation is turned off: a Managed
+Apple Account from directory sync then has no password, and Create Sign-In is what gives them one.
 
-## 3. Strongly recommended: test-enroll, then erase
+## 3. Ship it sealed
 
-While the Mac is still in your hands:
+Do not power the Mac on to test enrollment. A pre-ship boot, including a test-enroll followed by
+an erase, is laptop handling, and it is not part of this flow. The Mac ships sealed. Enrollment
+is confirmed on the day-1 call:
 
-1. Boot it and take it through enrollment far enough to see the **Remote Management** pane.
-2. Then **System Settings → General → Transfer or Reset → Erase All Content and Settings**.
+```
+profiles status -type enrollment
+```
 
-This proves the ADE record is actually live *before* the employee has it, and the erase refreshes
-the activation record so their first boot is clean. It costs ten minutes and removes the entire
-class of problems in §1.
+Expect `Enrolled via DEP: Yes` and `MDM enrollment: Yes`. If the Remote Management pane never
+appears, use §4. A bad activation record is caught there, not by opening the laptop first.
 
 ## 4. Recovery ladder — the Remote Management pane didn't appear
 
@@ -115,9 +117,19 @@ with no way to approve the push, and the whole day-1 flow stalls behind it.
 
 ## Then hand it over
 
-The employee opens Terminal and runs the one-liner from the [README](./README.md); when it
-finishes, `benex-day1` walks them through the sign-ins. On a Mac provisioned by the signed
-package rather than the one-liner, Microsoft 365 is *deferred* rather than installed — its
-installer needs an admin password and nobody is at the keyboard at first login — so expect
-`benex-day1` to install it, with a password prompt, as its first real step. Their mailbox is the first thing they
-reach, which is why §5 has to be done first.
+The Mac ships sealed. The employee powers it on, joins Wi-Fi, and signs in with their Benex
+Microsoft account on the Remote Management screen. The Work Devices Blueprint installs the
+signed package, which runs the bootstrap before anyone opens Terminal. Their only command is:
+
+```
+benex-day1
+```
+
+That walks through the sign-ins. Microsoft 365 may ask for the Mac password there — its
+installer needs an admin and nobody is at the keyboard at first login — so expect that prompt
+as an early step. The mailbox is the first sign-in, which is why §5 has to be done first.
+
+If `benex-day1` is not found, the package did not run. The fallback is the one-liner in the
+[README](./README.md). Send `~/Library/Logs/benex-user-bootstrap.log` and
+`/var/log/benex-bootstrap.log` if either path fails. There is no Company Portal step, and day 1
+does not clone a repository.

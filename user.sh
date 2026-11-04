@@ -5,7 +5,7 @@
 #   • from the day-1 one-liner: bootstrap.sh runs it right after root.sh
 #
 #   brew: git, nvm, gh, dockutil + casks Chrome, Microsoft 365, 1Password, Teams,
-#         Docker, Cursor, VS Code, cmux, iTerm2, CopyClip
+#         Docker, Cursor, VS Code, cmux, iTerm2, Maccy
 #   Dock curation, ~/Projects, Node LTS + Claude Code, the ccstatusline status
 #   line, git identity, SSH key, Chrome default
 #
@@ -19,7 +19,7 @@ exec > >(tee -a "$LOG") 2>&1
 echo "== $(date) user bootstrap for $USER"
 
 # The employee's work email is NEVER derived from the Mac's account name — people
-# name their own local account ("samash"), so a derived address is simply wrong.
+# name their own local account ("localname"), so a derived address is simply wrong.
 # benex-day1 asks for it once and saves it here; until then we do without.
 EMAIL_FILE="$HOME/.benex/work-email"
 WORK_EMAIL=""
@@ -149,7 +149,7 @@ done
 # ~3GB .pkg, so it needs an admin password and macOS 14+; if either is missing it
 # fails on its own and shows up in the summary without costing the other apps.
 for cask in google-chrome microsoft-office 1password microsoft-teams \
-            docker cursor visual-studio-code cmux iterm2 copyclip; do
+            docker cursor visual-studio-code cmux iterm2 maccy; do
   install_cask "$cask"
 done
 

@@ -4,8 +4,9 @@
 #
 #     curl -fsSL https://benextechnologies.github.io/mac-bootstrap/bootstrap.sh | zsh
 #
-# Downloads root.sh, user.sh and benex-day1 from the same location, runs the root
-# part with sudo (one password prompt), then the user part as you. Safe to re-run.
+# Downloads root.sh, user.sh, benex-day1, and the shell helpers from the same
+# location, runs the root part with sudo (one password prompt), then the user
+# part as you. Safe to re-run.
 # ------------------------------------------------------------------------------
 set -u
 BASE="${BENEX_BOOTSTRAP_BASE:-https://benextechnologies.github.io/mac-bootstrap}"
@@ -15,6 +16,14 @@ TMP="$(mktemp -d /tmp/benex-bootstrap.XXXXXX)"
 for f in root.sh user.sh benex-day1; do
   curl -fsSL "$BASE/$f" -o "$TMP/$f" || { echo "Could not download $BASE/$f"; exit 1; }
 done
+# claudel / clauded / claudew. Required: day 1 no longer clones a private repo for them.
+mkdir -p "$TMP/shell"
+if ! curl -fsSL "$BASE/shell/benex.zsh" -o "$TMP/shell/benex.zsh"; then
+  echo "Could not download $BASE/shell/benex.zsh"
+  echo "claudel, clauded, and claudew come from that file. It is part of this repo, not a private clone."
+  echo "If that URL 404s, shell/benex.zsh is not on the GitHub Pages branch yet."
+  exit 1
+fi
 chmod 755 "$TMP"/*
 
 # The Claude Code status line files ride along; user.sh skips that step without them.

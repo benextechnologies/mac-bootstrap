@@ -8,8 +8,9 @@
 #
 # What it does:
 #   1. Sleep/display timers to match Dan's Mac + lets admins run pmset without a sudo password (claudel)
+#   1b. Hostname: <device>-<last4 of the serial>, lowercase, on HostName, LocalHostName, and ComputerName
 #   2. keepawake + sleeprestore LaunchDaemons (ported from the pre-MDM dev-machine setup)
-#   3. Shared zsh config for every user  (/etc/benex/benex.zsh: brew, nvm, hook for the git helpers)
+#   3. Shared zsh config for every user (/etc/benex/benex.zsh: brew, nvm, bundled claudel/clauded/claudew)
 #   4. Xcode Command Line Tools
 #   5. Homebrew into /opt/homebrew, owned by the employee (no sudo prompt ever again)
 #   6. Installs /usr/local/bin/benex-day1 (from the same download / package payload)
@@ -21,6 +22,92 @@ set -u
 LOG=/var/log/benex-bootstrap.log
 exec > >(tee -a "$LOG") 2>&1
 echo "== $(date) system bootstrap start"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# ---- 1b. Hostname --------------------------------------------------------------
+# <device>-<last4 of the serial>, lowercase, same value for all three names.
+# Example: a MacBook Air whose serial ends in 45W9 becomes mba-45w9.
+# device: mba, mbp, mini, studio, imac. Anything else is mac- plus a warning.
+# Non-interactive port of the legacy rename-mac.sh (that one stopped to ask).
+benex_apply_hostname() {
+  local hw model hw_model serial serial_lc alnum bad_serial prefix last4 name key failed current host comp
+  hw=$(system_profiler SPHardwareDataType 2>/dev/null || true)
+  model=$(printf '%s\n' "$hw" | awk -F': +' '/Model Name:/ { sub(/\r/, "", $2); print $2; exit }')
+  serial=$(printf '%s\n' "$hw" | awk -F': +' '/Serial Number/ { sub(/\r/, "", $2); print $2; exit }')
+  if [ -z "$serial" ]; then
+    serial=$(ioreg -rd1 -c IOPlatformExpertDevice 2>/dev/null | awk -F'"' '/IOPlatformSerialNumber/ { print $4; exit }')
+  fi
+  serial_lc=$(printf '%s' "$serial" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+  alnum=$(printf '%s' "$serial_lc" | tr -cd 'a-z0-9')
+  # "Not Available" becomes notavailable once the space is gone, and that is 12
+  # letters, so a length check alone would accept it and name the Mac after it.
+  bad_serial=0
+  case "$serial_lc" in
+    ""|notavailable|unavailable|unknown|null|error|n/a|na) bad_serial=1 ;;
+  esac
+  if [ "$alnum" != "$serial_lc" ] || [ "${#alnum}" -lt 8 ]; then
+    bad_serial=1
+  fi
+  prefix=""
+  case "$model" in
+    *MacBook\ Air*) prefix=mba ;;
+    *MacBook\ Pro*) prefix=mbp ;;
+    *Mac\ mini*) prefix=mini ;;
+    *Mac\ Studio*) prefix=studio ;;
+    *iMac*) prefix=imac ;;
+  esac
+  if [ -z "$prefix" ]; then
+    # Keep Model Name for the warning. Only fall through to hw.model when
+    # system_profiler didn't give one (common while Setup Assistant is up).
+    hw_model=$(sysctl -n hw.model 2>/dev/null || true)
+    case "$hw_model" in
+      MacBookAir*) prefix=mba ;;
+      MacBookPro*) prefix=mbp ;;
+      Macmini*) prefix=mini ;;
+      iMac*) prefix=imac ;;
+      *) prefix=mac ;;
+    esac
+    [ -n "$model" ] || model="$hw_model"
+  fi
+  if [ "$bad_serial" -eq 1 ]; then
+    echo "WARNING: hostname not set — the serial number was missing or not usable."
+    echo "         Expected a name like mba-45w9 (device, a hyphen, then the last 4 of the serial, lowercase)."
+    echo "         device is one of: mba, mbp, mini, studio, imac."
+    echo "         Fix: sudo scutil --set HostName <name>"
+    echo "              sudo scutil --set LocalHostName <name>"
+    echo "              sudo scutil --set ComputerName <name>"
+    echo "         All three have to be the same value. Model reported: ${model:-unknown}."
+    return 0
+  fi
+  last4=${alnum: -4}
+  if [ "$prefix" = "mac" ]; then
+    echo "WARNING: model '${model:-unknown}' has no Benex device prefix (mba, mbp, mini, studio, imac)."
+    echo "         Hostname will be mac-${last4}. Tell Dan if this Mac is an Air, Pro, mini, Studio, or iMac."
+  fi
+  name="${prefix}-${last4}"
+  failed=0
+  for key in HostName LocalHostName ComputerName; do
+    if ! scutil --set "$key" "$name"; then
+      echo "WARNING: scutil --set $key $name failed"
+      failed=1
+    fi
+  done
+  host=$(scutil --get HostName 2>/dev/null || true)
+  current=$(scutil --get LocalHostName 2>/dev/null || true)
+  comp=$(scutil --get ComputerName 2>/dev/null || true)
+  if [ "$host" = "$name" ] && [ "$current" = "$name" ] && [ "$comp" = "$name" ]; then
+    if [ "$failed" -eq 0 ]; then
+      echo "Hostname set to $name (HostName, LocalHostName, ComputerName)"
+    else
+      echo "WARNING: hostname reads back as $name, but a scutil --set command failed. See the lines above."
+    fi
+  else
+    echo "WARNING: hostname mismatch — wanted ${name}."
+    echo "         HostName='${host:-unset}' LocalHostName='${current:-unset}' ComputerName='${comp:-unset}'."
+    echo "         Re-run the three scutil --set commands with ${name}."
+  fi
+}
+benex_apply_hostname
 
 # ---- 1. Sleep / display timers (mirrors Dan's Mac, `pmset -g custom`, 27 Aug 2026) --
 # Battery (-b) and charger (-c). Minutes. 0 = never.
@@ -31,7 +118,11 @@ pmset -c displaysleep 5 sleep 0 disksleep 10 lowpowermode 1 powernap 1 standby 1
 mkdir -p /etc/sudoers.d
 printf '%%admin ALL=(root) NOPASSWD: /usr/bin/pmset\n' > /etc/sudoers.d/benex-pmset
 chmod 440 /etc/sudoers.d/benex-pmset
-visudo -cf /etc/sudoers.d/benex-pmset >/dev/null 2>&1 || rm -f /etc/sudoers.d/benex-pmset
+if ! visudo -cf /etc/sudoers.d/benex-pmset >/dev/null 2>&1; then
+  echo "WARNING: /etc/sudoers.d/benex-pmset failed visudo and was removed."
+  echo "         claudel runs 'sudo pmset' and will ask for a password, or fail, until this file is valid."
+  rm -f /etc/sudoers.d/benex-pmset
+fi
 
 # ---- 2. Keep-awake + sleep-restore LaunchDaemons --------------------------------
 # Ported verbatim from the pre-MDM dev-machine setup — behavior identical:
@@ -180,7 +271,29 @@ PLIST_EOF
 chown root:wheel /Library/LaunchDaemons/com.benex.sleeprestore.plist
 chmod 644 /Library/LaunchDaemons/com.benex.sleeprestore.plist
 
-# ---- 3. Shared Benex zsh helpers (system-wide, every user) --------------------
+# ---- 3. Shared Benex zsh config + shell helpers (every user) ------------------
+# claudel / clauded / claudew ship in this repo as shell/benex.zsh. Copy the file
+# to a stable path: the curl one-liner runs this script from a temp dir that
+# bootstrap.sh deletes, and a late GitHub org invite must not block the helpers.
+HELPER_SRC="$HERE/shell/benex.zsh"
+HELPER_DST=/usr/local/benex/shell/benex.zsh
+mkdir -p /usr/local/benex/shell
+if [ -f "$HELPER_SRC" ]; then
+  if [ "$HELPER_SRC" -ef "$HELPER_DST" ]; then
+    chmod 644 "$HELPER_DST"
+  else
+    install -m 644 "$HELPER_SRC" "$HELPER_DST"
+  fi
+  chown root:wheel "$HELPER_DST"
+  echo "Shell helpers installed: $HELPER_DST"
+elif [ -s "$HELPER_DST" ]; then
+  echo "WARNING: $HELPER_SRC is missing. Leaving the existing $HELPER_DST in place."
+else
+  echo "WARNING: shell helpers were not installed — $HELPER_SRC is missing."
+  echo "         claudel, clauded, and claudew will not exist until that file is present."
+  echo "         Re-run: curl -fsSL https://benextechnologies.github.io/mac-bootstrap/bootstrap.sh | zsh"
+fi
+
 mkdir -p /etc/benex
 cat > /etc/benex/benex.zsh <<'EOF'
 # Benex shared zsh config — managed by the Benex bootstrap
@@ -193,9 +306,12 @@ cat > /etc/benex/benex.zsh <<'EOF'
 export NVM_DIR="$HOME/.nvm"
 [ -s /opt/homebrew/opt/nvm/nvm.sh ] && . /opt/homebrew/opt/nvm/nvm.sh
 
-# Benex shell helpers (claudel / clauded / claudew …) live in git:
-#   github.com/benextechnologies/new-laptop-setup-guide  →  shell/install.sh
-# `benex-day1` clones the repo and installs them to ~/.benex/benex.zsh
+# Shell helpers (claudel / clauded / claudew). Shipped with the bootstrap.
+# No GitHub clone: a late org invite must not leave a new hire without them.
+[ -f /usr/local/benex/shell/benex.zsh ] && source /usr/local/benex/shell/benex.zsh
+
+# Optional override. benex-day1 does not install this. An engineer who keeps a
+# newer copy at ~/.benex/benex.zsh gets it after the bundled file, so it wins.
 [ -f "$HOME/.benex/benex.zsh" ] && source "$HOME/.benex/benex.zsh"
 EOF
 chmod 644 /etc/benex/benex.zsh
@@ -222,7 +338,15 @@ fi
 if [ ! -x /opt/homebrew/bin/brew ]; then
   echo "Installing Homebrew to /opt/homebrew…"
   mkdir -p /opt/homebrew
-  curl -fsSL https://github.com/Homebrew/brew/tarball/master | tar xz --strip-components 1 -C /opt/homebrew
+  # pipefail so a failed download is not hidden by tar exiting 0 on empty input.
+  if ! (set -o pipefail; curl -fsSL https://github.com/Homebrew/brew/tarball/master | tar xz --strip-components 1 -C /opt/homebrew); then
+    echo "WARNING: Homebrew did not install. Day 1 cannot install apps until this succeeds."
+    echo "         Re-run: curl -fsSL https://benextechnologies.github.io/mac-bootstrap/bootstrap.sh | zsh"
+    echo "         The error above is the one to send Dan, along with $LOG."
+  fi
+fi
+if [ ! -x /opt/homebrew/bin/brew ]; then
+  echo "WARNING: /opt/homebrew/bin/brew is still missing. user.sh will stop and tell the hire to re-run the one-liner."
 fi
 chgrp -R admin /opt/homebrew 2>/dev/null || true
 chmod -R g+rwX /opt/homebrew 2>/dev/null || true
@@ -234,12 +358,17 @@ if [ -n "$CONSOLE_USER" ]; then
 fi
 
 # ---- 6. Day-1 helper for the employee (/usr/local/bin/benex-day1) -------------
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 mkdir -p /usr/local/bin
 if [ -f "$HERE/benex-day1" ]; then
   install -m 755 "$HERE/benex-day1" /usr/local/bin/benex-day1
+  echo "benex-day1 installed: /usr/local/bin/benex-day1"
 elif [ -f /usr/local/benex/benex-day1 ]; then
   install -m 755 /usr/local/benex/benex-day1 /usr/local/bin/benex-day1
+  echo "benex-day1 installed: /usr/local/bin/benex-day1"
+else
+  echo "WARNING: benex-day1 was not installed — it was not next to root.sh or in /usr/local/benex."
+  echo "         The hire will get 'command not found' when they run benex-day1."
+  echo "         Re-run: curl -fsSL https://benextechnologies.github.io/mac-bootstrap/bootstrap.sh | zsh"
 fi
 
 # ---- 7. Benex wallpaper (/Library/Desktop Pictures/Benex.png) -------------------
