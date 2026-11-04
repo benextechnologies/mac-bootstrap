@@ -9,10 +9,11 @@ Everything a new Benex Mac needs beyond what Apple Business's Blueprint already 
 
 | File | Runs as | What |
 |---|---|---|
-| `root.sh` | root | sleep timers + pmset sudoers, keepawake/sleeprestore daemons, `/etc/benex/benex.zsh`, Xcode CLT, Homebrew (owned by the user), installs `benex-day1`, Benex wallpaper, Touch ID for `sudo`, Rosetta 2 |
-| `user.sh` | the employee | git/nvm/gh/dockutil, Chrome, Microsoft 365, 1Password, Teams, Docker, Cursor, VS Code, cmux, iTerm2, CopyClip, Benex wallpaper, Dock curation, `~/Projects`, macOS preferences, Node LTS, Claude Code + status line, git identity, SSH key, Chrome default — then prints what installed and what didn't |
-| `benex-day1` | the employee | guided sign-ins on day 1, email first (see below) |
-| `bootstrap.sh` | the employee | the day-1 one-liner: downloads the three files above and runs root.sh (sudo) then user.sh |
+| `root.sh` | root | hostname (`mba-45w9` style), sleep timers + pmset sudoers, keepawake/sleeprestore daemons, `/etc/benex/benex.zsh`, the bundled shell helpers, Xcode CLT, Homebrew (owned by the user), installs `benex-day1`, Benex wallpaper, Touch ID for `sudo`, Rosetta 2 |
+| `user.sh` | the employee | git/nvm/gh/dockutil, Chrome, Microsoft 365, 1Password, Teams, Docker, Cursor, VS Code, cmux, iTerm2, Maccy, Benex wallpaper, Dock curation, `~/Projects`, macOS preferences, Node LTS, Claude Code + status line, git identity, SSH key, Chrome default — then prints what installed and what didn't |
+| `benex-day1` | the employee | guided sign-ins on day 1, email first (see below). No Company Portal step, and no private-repo clone |
+| `shell/benex.zsh` | sourced | `claudel` / `clauded` / `claudew`. Installed for every user by `root.sh`; not cloned from GitHub |
+| `bootstrap.sh` | the employee | the day-1 one-liner: downloads the scripts above and runs root.sh (sudo) then user.sh |
 | `pkg/build-pkg.sh` | Dan | builds + signs `benex-bootstrap.pkg` for Apple Business (zero-touch path) |
 | `statusline/` | — | the shared Claude Code status line: `ccstatusline` widget config + the `session-output.js` widget, installed by `user.sh` |
 | `ADMIN.md` | Dan | pre-ship checklist and the known enrollment failure modes |
@@ -38,23 +39,25 @@ Mobile account, they contact Dan from their phone for an activation link.
 2. **Activate the accounts waiting in the mailbox** — create a GitHub account with the work
    email if there isn't one and accept the `benextechnologies` org invite; accept the
    1Password invite (`benex.1password.com`).
-3. **CLI + app sign-ins** — GitHub CLI (`gh auth login`) and SSH key, the shell-helper repo,
-   the 1Password app, Outlook/Teams/Company Portal, Claude Code, Docker, Cursor.
+3. **CLI + app sign-ins** — GitHub CLI (`gh auth login`) and SSH key, the shell helpers
+   (already on the Mac; nothing is cloned), the 1Password app, Outlook and Teams,
+   Claude Code, Docker, Cursor.
 
 Steps 0–2 are new: before them, day 1 asked for `gh auth login` while the employee still had
 no way to read the invite that made a GitHub sign-in possible. Steps 1–2 re-prompt on every
 run (like the other steps the script can't check for itself); answering them again is harmless.
 
 **Never derive the address from the Mac's account name.** Employees name their own local
-account, so `$USER@getbenex.com` is simply wrong (a local account of `samash` produced
-`samash@getbenex.com` everywhere — 1Password sign-in instructions and git `user.email`
+account, so `$USER@getbenex.com` is simply wrong (a local account of `localname` produced
+`localname@getbenex.com` everywhere — 1Password sign-in instructions and git `user.email`
 included). Only the saved answer from step 0 is used; if `user.sh` runs before that answer
 exists it leaves `user.email` unset rather than guessing, and `benex-day1` fills it in — and
 rewrites the SSH key's comment — as soon as it knows.
 
 **Claude accounts are personal.** Benex runs no Claude Team/Enterprise workspace and nobody
 is pre-invited, so day 1 has the employee create their own account at `claude.ai` on their
-Benex address (Claude Code needs a paid plan, Pro at minimum) *before* the `claude` login.
+Benex address and subscribe to **Claude Max on the company card** — not a personal card,
+and not the cheaper plan — *before* the `claude` login. That is what `benex-day1` tells them.
 
 `user.sh` matches that order — Chrome and Outlook install ahead of the dev-tool casks.
 
@@ -93,21 +96,37 @@ Benex address (Claude Code needs a paid plan, Pro at minimum) *before* the `clau
 
 ## Two delivery paths
 
-**Until the Developer ID certificate exists** — employee runs, in Terminal, on day 1:
+**A Mac bought on the Benex Apple account** installs the signed package at first boot.
+The employee's only command is `benex-day1`.
+
+**Fallback**, if that command is not found — the package did not run. In Terminal:
 
 ```
 curl -fsSL https://benextechnologies.github.io/mac-bootstrap/bootstrap.sh | zsh
 ```
 
-**Once it exists** — `./pkg/build-pkg.sh "Developer ID Installer: Benex Technologies Inc (TEAMID)"`,
-commit `dist/benex-bootstrap.pkg`, add it in Apple Business → macOS Packages (URL + SHA-256),
-attach to the Work Devices Blueprint. From then on every Mac installs everything on first boot.
+Then `benex-day1`.
+
+**Rebuilding the package** (on a Mac with the Developer ID Installer certificate):
+
+```
+./pkg/build-pkg.sh "Developer ID Installer: Benex Technologies Inc (TEAMID)"
+```
+
+Commit `dist/benex-bootstrap.pkg`. In Apple Business → Devices → macOS Packages the URL is
+`https://benextechnologies.github.io/mac-bootstrap/dist/benex-bootstrap.pkg` — the `/dist/`
+segment is required — bundle id `com.getbenex.bootstrap`. Paste the SHA-256 the script prints
+onto the existing package entry and keep it on the Work Devices Blueprint. Apple caches by
+URL and hash, so a rebuild replaces the hash rather than adding a second package.
 
 ## Hosting
 
 This repo is **public** and served by GitHub Pages from the root (Settings → Pages → Deploy from branch → `main` / `/ (root)`).
-Nothing in it is secret: the shell helpers (`claudel` etc.) live in the private `new-laptop-setup-guide` repo and are
-fetched by `benex-day1` after the employee has signed in to GitHub.
+Nothing in it is secret. `claudel`, `clauded`, and `claudew` live in `shell/benex.zsh` and are
+installed by `root.sh` to `/usr/local/benex/shell/benex.zsh`, then sourced from `/etc/benex/benex.zsh`.
+Day 1 does not clone a repository to get them, so a late GitHub org invite cannot skip them.
+`clauded`, `claudel`, and `claudew` all go through `_benex_claude`, which runs `claude --dangerously-skip-permissions` (subcommands such as `update` are passed through without that flag). `claudel` also disables sleep for a lid-closed session and restores it on exit. `claudew` adds `--worktree`. An optional `~/.benex/benex.zsh` is sourced
+after the bundled file and overrides it; `benex-day1` does not create that file.
 
 ## Updating
 

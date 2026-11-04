@@ -6,10 +6,10 @@
 #   ./pkg/build-pkg.sh "Developer ID Installer: Benex Technologies Inc (TEAMID)"
 #
 # Run on a Mac, from the mac-bootstrap repo root. Needs Xcode Command Line Tools.
-# The package is payload-only-scripts: it copies root.sh / user.sh / benex-day1 to
-# /usr/local/benex, runs root.sh immediately, and installs a LaunchAgent that runs
-# user.sh once at each user's first login. macOS only accepts MDM-pushed packages
-# that are signed with a Developer ID Installer certificate.
+# The package is payload-only-scripts: it copies root.sh / user.sh / benex-day1 /
+# shell/benex.zsh to /usr/local/benex, runs root.sh immediately, and installs a
+# LaunchAgent that runs user.sh once at each user's first login. macOS only accepts
+# MDM-pushed packages that are signed with a Developer ID Installer certificate.
 # ------------------------------------------------------------------------------
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -19,6 +19,8 @@ OUT="dist"; STAGE="$(mktemp -d)"; ROOT="$STAGE/root"; SCRIPTS="$STAGE/scripts"
 mkdir -p "$OUT" "$ROOT/usr/local/benex" "$ROOT/Library/LaunchAgents" "$SCRIPTS"
 
 install -m 755 root.sh user.sh benex-day1 "$ROOT/usr/local/benex/"
+mkdir -p "$ROOT/usr/local/benex/shell"
+install -m 644 shell/benex.zsh "$ROOT/usr/local/benex/shell/"
 mkdir -p "$ROOT/usr/local/benex/wallpaper"
 install -m 644 wallpaper/benex.png "$ROOT/usr/local/benex/wallpaper/"
 mkdir -p "$ROOT/usr/local/benex/statusline"
@@ -70,6 +72,8 @@ echo "Package : $OUT/benex-bootstrap.pkg   (version $VERSION, bundle id com.getb
 echo "SHA-256 : $(shasum -a 256 "$OUT/benex-bootstrap.pkg" | awk '{print $1}')"
 echo
 echo "Next: commit dist/benex-bootstrap.pkg to the mac-bootstrap repo (GitHub Pages), then in Apple Business:"
-echo "  Devices → macOS Packages → +  →  URL https://benextechnologies.github.io/mac-bootstrap/benex-bootstrap.pkg"
+echo "  Devices → macOS Packages → +  →  URL https://benextechnologies.github.io/mac-bootstrap/dist/benex-bootstrap.pkg"
+echo "  (That URL has to include /dist/. The same path without /dist/ is a 404.)"
 echo "  bundle id com.getbenex.bootstrap, paste the SHA-256, Save → add the package to the Work Devices Blueprint."
+echo "  If that bundle id is already listed, open the existing entry and replace the SHA-256. Do not add a second copy."
 echo "  (Apple caches by URL+hash: every rebuild = update the package entry with the new hash.)"

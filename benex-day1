@@ -22,6 +22,10 @@ set -u
 ok()   { print -P "%F{green}✔%f $1"; }
 todo() { print -P "%F{yellow}→%f $1"; }
 hr()   { echo; print -P "%F{blue}── $1 ──%f"; }
+# Failures the hire has to act on. Printed where they happen, and again at the end
+# so a long run can't scroll the only copy off the screen.
+typeset -a DAY1_PROBLEMS
+problem() { DAY1_PROBLEMS+=("$1"); print -P "%F{red}✗%f $1"; }
 pause(){ read -k1 -s "?   press any key when done… "; echo; }
 # same idea as pause, but waits for Return — and reads the terminal directly, so
 # a piped/wrapped run stops here instead of silently "confirming" every step.
@@ -31,9 +35,9 @@ app_or_web(){ open -a "$1" 2>/dev/null || { todo "$1 isn't installed on this Mac
 
 [ -x /opt/homebrew/bin/brew ] && eval "$(/opt/homebrew/bin/brew shellenv)"
 
-# Everything below this line needs Homebrew — the GitHub CLI, the helper repo, the
-# installs that were left for this run. Without it the bootstrap didn't finish, and
-# walking someone through sign-ins that cannot work only wastes their morning.
+# Everything below this line needs Homebrew — the GitHub CLI and the installs that
+# were left for this run. Without it the bootstrap didn't finish, and walking
+# someone through sign-ins that cannot work only wastes their morning.
 if ! command -v brew >/dev/null 2>&1; then
   hr "Setup isn't finished on this Mac"
   todo "Homebrew isn't installed, so the bootstrap didn't complete — none of day 1 will work yet."
@@ -43,10 +47,34 @@ if ! command -v brew >/dev/null 2>&1; then
   exit 1
 fi
 
+if [ ! -f "$HOME/.benex-bootstrapped" ]; then
+  hr "App install has not finished"
+  todo "This Mac is not marked set up yet (no ~/.benex-bootstrapped)."
+  echo "   Log: ~/Library/Logs/benex-user-bootstrap.log"
+  echo "   If that file is still growing, the install is running — wait for it, then run benex-day1 again."
+  echo "   If it lists FAILED lines, retry:"
+  echo "     curl -fsSL https://benextechnologies.github.io/mac-bootstrap/bootstrap.sh | zsh"
+  echo "   Still failing? Send that log and /var/log/benex-bootstrap.log to Dan on Teams."
+  echo "   You can continue, but Outlook, 1Password, or the dev tools may not be installed yet."
+fi
+
+HOST_NOW=$(scutil --get LocalHostName 2>/dev/null || hostname -s 2>/dev/null || true)
+case "$HOST_NOW" in
+  mba-*|mbp-*|mini-*|studio-*|imac-*|mac-*)
+    ok "This Mac is named $HOST_NOW"
+    ;;
+  *)
+    problem "This Mac is named '${HOST_NOW:-unset}', not the Benex pattern such as mba-45w9."
+    echo "   root.sh sets HostName, LocalHostName, and ComputerName to <device>-<last 4 of the serial>."
+    echo "   device is mba, mbp, mini, studio, or imac, lowercase."
+    echo "   Send /var/log/benex-bootstrap.log to Dan. Look for a line starting 'Hostname set' or 'WARNING: hostname'."
+    ;;
+esac
+
 hr "Welcome to Benex, $(id -F). This takes about 15 minutes."
 
 # ---------------------------------------------------------------- 0. Your address
-# The Mac's account name is whatever you typed when you set the Mac up ("samash"),
+# The Mac's account name is whatever you typed when you set the Mac up ("localname"),
 # which is NOT your mailbox — so ask once, save it, and use it everywhere after.
 EMAIL_FILE="$HOME/.benex/work-email"
 mkdir -p "$HOME/.benex"
@@ -69,12 +97,24 @@ fi
 
 # Git commits and the SSH key: whatever ran before this could only guess, so fix
 # both now that we know. (Both idempotent; re-running just re-states the same thing.)
-git config --global user.email "$EMAIL"
-if [ -f "$HOME/.ssh/id_ed25519" ] && ! grep -q " $EMAIL$" "$HOME/.ssh/id_ed25519.pub" 2>/dev/null; then
-  ssh-keygen -q -c -P "" -C "$EMAIL" -f "$HOME/.ssh/id_ed25519" >/dev/null 2>&1 \
-    && cp "$HOME/.ssh/id_ed25519.pub" "$HOME/Desktop/GitHub-SSH-key-paste-me.txt" 2>/dev/null
+if ! command -v git >/dev/null 2>&1; then
+  problem "git is not installed, so commits have no Benex email yet. Re-run the bootstrap, then benex-day1."
+else
+  if git config --global user.email "$EMAIL"; then
+    ok "git will sign your commits as $(git config --global user.name) <$EMAIL>"
+  else
+    problem "Could not save git user.email. Run: git config --global user.email $EMAIL"
+  fi
+  if [ -f "$HOME/.ssh/id_ed25519" ] && ! grep -q " $EMAIL$" "$HOME/.ssh/id_ed25519.pub" 2>/dev/null; then
+    if ssh-keygen -q -c -P "" -C "$EMAIL" -f "$HOME/.ssh/id_ed25519"; then
+      cp "$HOME/.ssh/id_ed25519.pub" "$HOME/Desktop/GitHub-SSH-key-paste-me.txt" 2>/dev/null || \
+        problem "Could not copy the public key to the Desktop. It is still at ~/.ssh/id_ed25519.pub."
+      ok "SSH key comment updated to $EMAIL"
+    else
+      problem "Could not set the SSH key comment to $EMAIL. The key still works; GitHub may label it with the Mac account name."
+    fi
+  fi
 fi
-ok "git will sign your commits as $(git config --global user.name) <$EMAIL>"
 
 # ---------------------------------------------------------------- 0b. Finish the installs
 # A Mac provisioned by the package installs everything nobody has to authenticate
@@ -98,7 +138,8 @@ if [ -s "$DEFER_FILE" ] && command -v brew >/dev/null 2>&1; then
     elif brew install --cask "$pending"; then
       ok "Installed $pending"
     else
-      todo "$pending didn't install — run benex-day1 again later, or tell Dan"
+      problem "$pending did not install. Retry when you can type your Mac password: brew install --cask $pending"
+      echo "   The brew error above is the one to screenshot. Then re-run benex-day1."
       STILL_PENDING+=("$pending")
     fi
   done < "$DEFER_FILE"
@@ -171,36 +212,83 @@ ok "1Password account created"
 
 # ---------------------------------------------------------------- 3. GitHub CLI
 hr "GitHub"
-command -v gh >/dev/null || brew install gh >/dev/null
-if gh auth status >/dev/null 2>&1; then
-  ok "GitHub CLI already signed in"
-else
-  todo "Sign in to GitHub. Choose: GitHub.com → SSH → upload key ~/.ssh/id_ed25519.pub → Login with a web browser"
-  gh auth login --hostname github.com --git-protocol ssh --web
+if ! command -v gh >/dev/null 2>&1; then
+  todo "GitHub CLI isn't installed yet — installing it now (this can take a minute)"
+  if ! brew install gh; then
+    problem "GitHub CLI did not install. Run: brew install gh"
+    echo "   Then re-run benex-day1. The GitHub sign-in needs gh."
+  fi
 fi
-gh auth setup-git >/dev/null 2>&1
-if gh ssh-key list 2>/dev/null | grep -q "$(awk '{print $2}' ~/.ssh/id_ed25519.pub | cut -c1-20)"; then
-  ok "SSH key is on your GitHub account"
+if ! command -v gh >/dev/null 2>&1; then
+  problem "Skipping GitHub sign-in because gh is not on PATH."
 else
-  gh ssh-key add ~/.ssh/id_ed25519.pub --title "$(hostname -s) (Benex)" >/dev/null 2>&1 && ok "Uploaded SSH key to GitHub" || todo "Upload ~/.ssh/id_ed25519.pub at https://github.com/settings/keys"
+  authed=0
+  if gh auth status >/dev/null 2>&1; then
+    ok "GitHub CLI already signed in"
+    authed=1
+  else
+    todo "Sign in to GitHub. Choose: GitHub.com → SSH → upload key ~/.ssh/id_ed25519.pub → Login with a web browser"
+    if gh auth login --hostname github.com --git-protocol ssh --web; then
+      authed=1
+    else
+      problem "gh auth login did not finish. Run it again: gh auth login --hostname github.com --git-protocol ssh --web"
+    fi
+  fi
+  if [ "$authed" -eq 1 ]; then
+    if gh auth setup-git; then
+      ok "git will use this GitHub login"
+    else
+      problem "gh auth setup-git failed. Git over HTTPS may ask for a password. Re-run: gh auth setup-git"
+    fi
+    key_ok=0
+    if [ ! -f "$HOME/.ssh/id_ed25519.pub" ]; then
+      problem "No SSH public key at ~/.ssh/id_ed25519.pub. user.sh creates it; see ~/Library/Logs/benex-user-bootstrap.log."
+    elif gh ssh-key list 2>/dev/null | grep -q "$(awk '{print $2}' "$HOME/.ssh/id_ed25519.pub" | cut -c1-20)"; then
+      ok "SSH key is on your GitHub account"
+      key_ok=1
+    elif gh ssh-key add "$HOME/.ssh/id_ed25519.pub" --title "$(hostname -s) (Benex)"; then
+      ok "Uploaded SSH key to GitHub"
+      key_ok=1
+    else
+      problem "Could not upload the SSH key. Open https://github.com/settings/keys and add ~/.ssh/id_ed25519.pub."
+      echo "   A copy is on the Desktop as GitHub-SSH-key-paste-me.txt while the upload is still outstanding."
+    fi
+    if ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+      ok "ssh -T git@github.com works"
+    else
+      problem "ssh -T git@github.com did not authenticate. The key has to be on the GitHub account you just signed in to."
+    fi
+    [ "$key_ok" -eq 1 ] && rm -f "$HOME/Desktop/GitHub-SSH-key-paste-me.txt"
+  fi
 fi
-ssh -T git@github.com 2>&1 | grep -q "successfully authenticated" && ok "ssh -T git@github.com works" || todo "SSH test failed — tell Dan"
-rm -f "$HOME/Desktop/GitHub-SSH-key-paste-me.txt"
 echo "   (Only if Dan gave you a YubiKey: add it at https://github.com/settings/security → Security keys)"
 
-# ---------------------------------------------------------------- 3b. Benex shell helpers (from git)
+# ---------------------------------------------------------------- 3b. Benex shell helpers (shipped with the bootstrap, not cloned)
 hr "Benex shell helpers (claudel / clauded / claudew)"
-REPO_DIR="$HOME/.benex/new-laptop-setup-guide"
-mkdir -p "$HOME/.benex"
-if [ -d "$REPO_DIR/.git" ]; then
-  git -C "$REPO_DIR" pull -q && ok "Updated helper repo"
+HELPER=/usr/local/benex/shell/benex.zsh
+if [ ! -s "$HELPER" ]; then
+  problem "Shell helpers are missing ($HELPER)."
+  echo "   They ship with the Benex bootstrap. A missing GitHub org invite is not the cause, and cloning a repo will not fix it."
+  echo "   Re-run, then open a new terminal tab:"
+  echo "     curl -fsSL https://benextechnologies.github.io/mac-bootstrap/bootstrap.sh | zsh"
+  echo "   Still missing? Send /var/log/benex-bootstrap.log to Dan on Teams."
+elif ! zsh -n "$HELPER"; then
+  problem "Shell helpers file has a syntax error: $HELPER. Send that file to Dan."
 else
-  gh repo clone benextechnologies/new-laptop-setup-guide "$REPO_DIR" -- -q && ok "Cloned helper repo" || todo "Couldn't clone benextechnologies/new-laptop-setup-guide — has Dan added you to the org yet?"
-fi
-if [ -x "$REPO_DIR/shell/install.sh" ]; then
-  "$REPO_DIR/shell/install.sh" && ok "Helpers installed → open a new terminal tab and try: claudel"
-else
-  todo "shell/install.sh not in the repo yet — tell Dan"
+  # The file defines the launchers only when `claude` is already on PATH, and
+  # returns without defining them otherwise. That is not a broken install.
+  if ! zsh -c 'source "$1"; (( ${+commands[claude]} ))' _ "$HELPER"; then
+    ok "Helpers installed ($HELPER) — they load in a new tab once claude is on PATH"
+    echo "   No GitHub account is needed for these. After Claude Code is installed, open a new terminal tab and try:  claudel"
+  elif ! zsh -c 'source "$1" && (( $+functions[clauded] && $+functions[claudel] && $+functions[claudew] ))' _ "$HELPER"; then
+    problem "Helpers file is present and claude is on PATH, but claudel, clauded, and claudew are not defined: $HELPER. Send that file to Dan."
+  else
+    ok "Helpers installed ($HELPER) — no GitHub account needed for these"
+    echo "   Open a new terminal tab so your shell loads them, then try:  claudel"
+  fi
+  echo "   clauded, claudel, and claudew all run Claude Code with permission prompts turned off."
+  echo "   claudel also keeps the Mac awake with the lid closed, and turns sleep back on when that command exits."
+  echo "   claudew runs the session in an isolated git worktree."
 fi
 
 # ---------------------------------------------------------------- 4. 1Password
@@ -209,14 +297,10 @@ todo "Open 1Password (in your Dock), sign in with $EMAIL, then confirm the exten
 open -a "1Password" 2>/dev/null; pause
 
 # ---------------------------------------------------------------- 5. Microsoft apps
-hr "Outlook, Teams, Company Portal"
+hr "Outlook and Teams"
 todo "Sign in to the Outlook and Teams apps as $EMAIL — same password and Duo push as the webmail"
 app_or_web "Microsoft Outlook" "https://outlook.office.com"
 app_or_web "Microsoft Teams"   "https://teams.microsoft.com"
-pause
-todo "Company Portal registers this Mac with Benex — open it and sign in as $EMAIL"
-app_or_web "Company Portal" "https://portal.manage.microsoft.com"
-echo "   (No Company Portal on this Mac? It arrives with the Benex device profile — tell Dan if it never turns up.)"
 pause
 echo "   (Only if Dan gave you a YubiKey: add it at https://aka.ms/mysecurityinfo → Add sign-in method → Security key)"
 
@@ -235,7 +319,7 @@ if command -v claude >/dev/null; then
   pause
   ok "Claude Code ready — try:  claudel"
 else
-  todo "claude not on PATH yet — the background install may still be running; re-run benex-day1 in 10 min"
+  problem "claude is not on PATH. If the app install is still running, wait and re-run benex-day1. Otherwise see ~/Library/Logs/benex-user-bootstrap.log (Node LTS and Claude Code)."
 fi
 
 # ---------------------------------------------------------------- 7. Docker / Cursor
@@ -251,5 +335,14 @@ echo "   Vercel  https://vercel.com/login"
 echo "   Render  https://dashboard.render.com   (turn on 2FA under Account Settings)"
 
 hr "Done"
-echo "   Everything else was set up automatically. If anything above failed, screenshot it and send it to Dan on Teams."
+if [ ${#DAY1_PROBLEMS[@]} -gt 0 ]; then
+  echo "   These still need a fix. Screenshot this list and send it to Dan on Teams if a retry doesn't clear it:"
+  for item in "${DAY1_PROBLEMS[@]}"; do
+    print -P "   %F{red}✗%f $item"
+  done
+  echo "   Logs: ~/Library/Logs/benex-user-bootstrap.log"
+  echo "         /var/log/benex-bootstrap.log"
+else
+  echo "   Everything else was set up automatically."
+fi
 echo
