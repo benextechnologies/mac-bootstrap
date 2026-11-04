@@ -274,12 +274,21 @@ if [ ! -s "$HELPER" ]; then
   echo "   Still missing? Send /var/log/benex-bootstrap.log to Dan on Teams."
 elif ! zsh -n "$HELPER"; then
   problem "Shell helpers file has a syntax error: $HELPER. Send that file to Dan."
-elif ! zsh -c 'source "$1" && (( $+functions[clauded] && $+functions[claudel] && $+functions[claudew] ))' _ "$HELPER"; then
-  problem "Helpers file is present but does not define claudel, clauded, and claudew: $HELPER. Send that file to Dan."
 else
-  ok "Helpers installed ($HELPER) — no GitHub account needed for these"
-  echo "   Open a new terminal tab so your shell loads them, then try:  claudel"
-  echo "   clauded runs Claude Code with permission prompts turned off. claudel also keeps the Mac awake until that command exits."
+  # The file defines the launchers only when `claude` is already on PATH, and
+  # returns without defining them otherwise. That is not a broken install.
+  if ! zsh -c 'source "$1"; (( ${+commands[claude]} ))' _ "$HELPER"; then
+    ok "Helpers installed ($HELPER) — they load in a new tab once claude is on PATH"
+    echo "   No GitHub account is needed for these. After Claude Code is installed, open a new terminal tab and try:  claudel"
+  elif ! zsh -c 'source "$1" && (( $+functions[clauded] && $+functions[claudel] && $+functions[claudew] ))' _ "$HELPER"; then
+    problem "Helpers file is present and claude is on PATH, but claudel, clauded, and claudew are not defined: $HELPER. Send that file to Dan."
+  else
+    ok "Helpers installed ($HELPER) — no GitHub account needed for these"
+    echo "   Open a new terminal tab so your shell loads them, then try:  claudel"
+  fi
+  echo "   clauded, claudel, and claudew all run Claude Code with permission prompts turned off."
+  echo "   claudel also keeps the Mac awake with the lid closed, and turns sleep back on when that command exits."
+  echo "   claudew runs the session in an isolated git worktree."
 fi
 
 # ---------------------------------------------------------------- 4. 1Password

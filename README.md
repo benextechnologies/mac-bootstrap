@@ -125,7 +125,7 @@ This repo is **public** and served by GitHub Pages from the root (Settings → P
 Nothing in it is secret. `claudel`, `clauded`, and `claudew` live in `shell/benex.zsh` and are
 installed by `root.sh` to `/usr/local/benex/shell/benex.zsh`, then sourced from `/etc/benex/benex.zsh`.
 Day 1 does not clone a repository to get them, so a late GitHub org invite cannot skip them.
-`clauded` runs `claude --dangerously-skip-permissions`. An optional `~/.benex/benex.zsh` is sourced
+`clauded`, `claudel`, and `claudew` all go through `_benex_claude`, which runs `claude --dangerously-skip-permissions` (subcommands such as `update` are passed through without that flag). `claudel` also disables sleep for a lid-closed session and restores it on exit. `claudew` adds `--worktree`. An optional `~/.benex/benex.zsh` is sourced
 after the bundled file and overrides it; `benex-day1` does not create that file.
 
 ## Updating
